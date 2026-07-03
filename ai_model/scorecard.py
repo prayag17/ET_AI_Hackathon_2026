@@ -47,4 +47,14 @@ def print_scorecard(df, model_pred_col_template="model_pred_{h}h"):
 
 if __name__ == "__main__":
     df = pd.read_csv("data/with_baselines.csv", parse_dates=["timestamp"])
+    try:
+        preds = pd.read_csv("data/model_predictions.csv", parse_dates=["timestamp"])
+        df = df.merge(
+            preds[["timestamp", "grid_cell_id", "model_pred_24h", "model_pred_48h", "model_pred_72h"]],
+            on=["timestamp", "grid_cell_id"],
+            how="left"
+        )
+        print("Model predictions found and merged.")
+    except FileNotFoundError:
+        print("No model predictions yet — showing baseline-only scorecard.")
     print_scorecard(df)
