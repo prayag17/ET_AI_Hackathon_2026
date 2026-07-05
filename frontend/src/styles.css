@@ -132,6 +132,74 @@ body {
   --sidebar-ring: oklch(0.56 0.021 213.5);
 }
 
+/* MapLibre chrome — keep it in line with the dark shadcn palette */
+.maplibregl-canvas {
+  outline: none;
+}
+.maplibregl-ctrl-attrib {
+  background: transparent !important;
+  font-size: 10px;
+}
+.maplibregl-ctrl-attrib a,
+.maplibregl-ctrl-attrib-button {
+  color: var(--muted-foreground) !important;
+}
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--card) !important;
+}
+
+/* Keep controls above the page's edge-vignette overlay (z-5) */
+.maplibregl-ctrl-top-left,
+.maplibregl-ctrl-top-right,
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-bottom-right {
+  z-index: 10;
+}
+
+/* Control buttons (zoom, reset view, fullscreen) */
+.maplibregl-ctrl-group {
+  background: color-mix(in oklab, var(--card) 80%, transparent) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.3) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button {
+  width: 32px !important;
+  height: 32px !important;
+  color: var(--foreground);
+}
+.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--border) !important;
+}
+.maplibregl-ctrl-group button:hover:not(:disabled) {
+  background-color: var(--accent) !important;
+}
+.maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+/* MapLibre's stock icons are dark SVGs — flip them for the dark theme */
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(0.9);
+}
+
+/* Scale bar — thin ruler bracket, no box */
+.maplibregl-ctrl-scale {
+  background: transparent !important;
+  border: 1px solid color-mix(in oklab, var(--foreground) 45%, transparent) !important;
+  border-top: none !important;
+  border-radius: 0;
+  color: var(--muted-foreground) !important;
+  font-size: 10px;
+  line-height: 1.2;
+  font-family: var(--font-sans);
+  padding: 0 4px 2px;
+  text-align: center;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
