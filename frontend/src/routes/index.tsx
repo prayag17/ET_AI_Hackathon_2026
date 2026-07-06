@@ -3,8 +3,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { LoaderCircle, MapPinned } from 'lucide-react'
 import type { FeatureCollection } from 'geojson'
-import { GridMap } from '@/components/grid-map'
+import { AQI_STOPS, GridMap, aqiColor } from '@/components/grid-map'
 import type { GridCell } from '@/components/grid-map'
+
+function aqiLabel(aqi: number): string {
+  let label = AQI_STOPS[0].label
+  for (const s of AQI_STOPS) if (aqi >= s.aqi) label = s.label
+  return label
+}
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -27,21 +33,33 @@ function Home() {
     queryFn: () => fetchGeoJson('/api/maps/getBoundary'),
     staleTime: Infinity,
   })
+  const pollution = useQuery({
+    queryKey: ['pollution'],
+    queryFn: async () => {
+      const res = await fetch('/api/maps/getPollution')
+      if (!res.ok) throw new Error(`getPollution responded with ${res.status}`)
+      return res.json() as Promise<{
+        datetime: string
+        values: Record<string, number>
+      }>
+    },
+  })
 
   return (
     <div className="dark relative h-dvh w-full overflow-hidden bg-background text-foreground">
-      {grid.data && boundary.data && (
+      {grid.data && boundary.data && pollution.data && (
         <GridMap
           grid={grid.data}
           boundary={boundary.data}
           onHoverCell={setHovered}
+          pollutionData={pollution.data}
         />
       )}
 
       {/* Black halo vignette around the map edges */}
       <div className="pointer-events-none absolute inset-0 z-[5] shadow-[inset_0_0_140px_40px_rgba(0,0,0,0.6)]" />
 
-      {(grid.isPending || boundary.isPending) && (
+      {(grid.isPending || boundary.isPending || pollution.isPending) && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <LoaderCircle className="size-4 animate-spin" />
@@ -50,10 +68,12 @@ function Home() {
         </div>
       )}
 
-      {(grid.isError || boundary.isError) && (
+      {(grid.isError || boundary.isError || pollution.isError) && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="max-w-sm rounded-lg border border-destructive/40 bg-card p-4 text-sm">
-            <p className="font-medium text-destructive">Failed to load map data</p>
+            <p className="font-medium text-destructive">
+              Failed to load map data
+            </p>
             <p className="mt-1 text-muted-foreground">
               Is the backend running? <code>uv run fastapi dev main.py</code>
             </p>
@@ -70,7 +90,9 @@ function Home() {
               Ahmedabad
             </h1>
             <p className="mt-1 text-xs text-muted-foreground">
-              1 km² analysis grid
+              {pollution.data
+                ? `AQI · ${new Date(pollution.data.datetime).toLocaleString()}`
+                : '1 km² analysis grid'}
             </p>
           </div>
           {grid.data && (
@@ -98,10 +120,30 @@ function Home() {
                   r{hovered.row} · c{hovered.col}
                 </span>
               </div>
+              {(() => {
+                const aqi = pollution.data?.values[hovered.grid_id]
+                if (aqi === undefined) return null
+                return (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span
+                      className="size-2.5 rounded-full"
+                      style={{ backgroundColor: aqiColor(aqi) }}
+                    />
+                    <span className="font-mono text-lg font-semibold leading-none">
+                      {Math.round(aqi)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      AQI · {aqiLabel(aqi)}
+                    </span>
+                  </div>
+                )
+              })()}
               <dl className="mt-3 space-y-1.5 text-xs">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Area</dt>
-                  <dd className="font-mono">{hovered.area_km2.toFixed(2)} km²</dd>
+                  <dd className="font-mono">
+                    {hovered.area_km2.toFixed(2)} km²
+                  </dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">City coverage</dt>

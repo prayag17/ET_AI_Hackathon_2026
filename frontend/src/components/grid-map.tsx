@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import type { ExpressionSpecification } from 'maplibre-gl'
 import type { FeatureCollection } from 'geojson'
 
 // OpenFreeMap's dark basemap — free, no API key, rebuilt weekly from fresh
@@ -21,6 +22,42 @@ interface GridMapProps {
   grid: FeatureCollection
   boundary: FeatureCollection
   onHoverCell?: (cell: GridCell | null) => void
+  pollutionData?: { datetime: string; values: Record<string, number> }
+}
+
+// Indian CPCB AQI scale — drives the cell colors and is exported for the
+// legend / hover panel to stay consistent with the map
+export const AQI_STOPS = [
+  { aqi: 0, color: '#22c55e', label: 'Good' },
+  { aqi: 100, color: '#eab308', label: 'Moderate' },
+  { aqi: 200, color: '#f97316', label: 'Poor' },
+  { aqi: 300, color: '#ef4444', label: 'Very poor' },
+  { aqi: 400, color: '#991b1b', label: 'Severe' },
+]
+
+export function aqiColor(aqi: number): string {
+  let stop = AQI_STOPS[0]
+  for (const s of AQI_STOPS) if (aqi >= s.aqi) stop = s
+  return stop.color
+}
+
+// Cells with no reading yet get -1 so the paint rules can tell them apart
+const AQI_STATE: ExpressionSpecification = [
+  'coalesce',
+  ['feature-state', 'aqi'],
+  -1,
+]
+
+/** Write per-cell AQI into maplibre feature-state (geometry stays untouched,
+ *  so this is cheap enough to call on every time-slider tick later). */
+function applyPollution(
+  map: maplibregl.Map,
+  values: Record<string, number> | undefined,
+) {
+  if (!values || !map.getSource('grid')) return
+  for (const [gridId, aqi] of Object.entries(values)) {
+    map.setFeatureState({ source: 'grid', id: gridId }, { aqi })
+  }
 }
 
 /** Compute a [sw, ne] bounding box from any GeoJSON FeatureCollection. */
@@ -79,10 +116,24 @@ class FitCityControl implements maplibregl.IControl {
   }
 }
 
-export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
+export function GridMap({
+  grid,
+  boundary,
+  onHoverCell,
+  pollutionData,
+}: GridMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<maplibregl.Map | null>(null)
   const onHoverRef = useRef(onHoverCell)
   onHoverRef.current = onHoverCell
+  // Values may arrive before or after the map's 'load' event; keep the latest
+  // in a ref so the load handler can pick them up either way
+  const pollutionRef = useRef(pollutionData)
+  pollutionRef.current = pollutionData
+
+  useEffect(() => {
+    if (mapRef.current) applyPollution(mapRef.current, pollutionData?.values)
+  }, [pollutionData])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -107,6 +158,7 @@ export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
       pitchWithRotate: false,
     })
     map.touchZoomRotate.disableRotation()
+    mapRef.current = map
 
     // Map chrome: zoom buttons, reset-to-city, fullscreen, scale bar
     map.addControl(
@@ -130,18 +182,29 @@ export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
       })
       map.addSource('boundary', { type: 'geojson', data: boundary })
 
-      // Near-invisible fill so cells are hoverable; brightens on hover
+      // AQI heatmap fill; cells without a value yet stay near-invisible
+      // white (so the lattice is still hoverable before data arrives)
       map.addLayer({
         id: 'grid-fill',
         type: 'fill',
         source: 'grid',
         paint: {
-          'fill-color': '#ffffff',
+          'fill-color': [
+            'case',
+            ['<', AQI_STATE, 0],
+            '#ffffff',
+            [
+              'interpolate',
+              ['linear'],
+              AQI_STATE,
+              ...AQI_STOPS.flatMap((s) => [s.aqi, s.color]),
+            ],
+          ],
           'fill-opacity': [
             'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            0.27,
-            0.10,
+            ['<', AQI_STATE, 0],
+            ['case', ['boolean', ['feature-state', 'hover'], false], 0.27, 0.1],
+            ['case', ['boolean', ['feature-state', 'hover'], false], 0.8, 0.55],
           ],
         },
       })
@@ -151,12 +214,16 @@ export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
         source: 'grid',
         paint: {
           'line-color': '#ffffff',
+          // fade the lattice in as you zoom closer; maplibre requires the
+          // zoom expression at the top level, so hover lives in the outputs
           'line-opacity': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            0.6,
-            // fade the lattice in as you zoom closer
-            ['interpolate', ['linear'], ['zoom'], 10, 0.15, 13, 0.35],
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            10,
+            ['case', ['boolean', ['feature-state', 'hover'], false], 0.6, 0.15],
+            13,
+            ['case', ['boolean', ['feature-state', 'hover'], false], 0.6, 0.35],
           ],
           'line-width': [
             'case',
@@ -177,6 +244,9 @@ export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
         },
       })
 
+      // Values may have arrived while the style was still loading
+      applyPollution(map, pollutionRef.current?.values)
+
       map.on('mousemove', 'grid-fill', (e) => {
         const feature = e.features?.[0]
         if (!feature) return
@@ -188,7 +258,10 @@ export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
         }
         if (hoveredId !== feature.id) {
           hoveredId = feature.id ?? null
-          map.setFeatureState({ source: 'grid', id: hoveredId! }, { hover: true })
+          map.setFeatureState(
+            { source: 'grid', id: hoveredId! },
+            { hover: true },
+          )
           onHoverRef.current?.(feature.properties as unknown as GridCell)
         }
         map.getCanvas().style.cursor = 'crosshair'
@@ -207,6 +280,7 @@ export function GridMap({ grid, boundary, onHoverCell }: GridMapProps) {
     })
 
     return () => {
+      mapRef.current = null
       map.remove()
     }
   }, [grid, boundary])
