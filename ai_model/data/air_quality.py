@@ -4,7 +4,7 @@ API_KEY = os.environ["OPENAQ_API_KEY"]        # free key from https://explore.op
 BASE    = "https://api.openaq.org/v3"
 HEADERS = {"X-API-Key": API_KEY}
 
-DELHI_BBOX = "76.84,28.40,77.35,28.88"         # xmin(lon),ymin(lat),xmax(lon),ymax(lat)
+AHMEDABAD_BBOX = "72.40,22.90,72.70,23.10"     # xmin(lon),ymin(lat),xmax(lon),ymax(lat)
 PM25 = 2                                        # OpenAQ parameter id for PM2.5
 
 def get(path, params=None):
@@ -12,8 +12,8 @@ def get(path, params=None):
     r.raise_for_status()
     return r.json()
 
-# 1) find Delhi stations that measure PM2.5
-locs = get("/locations", {"bbox": DELHI_BBOX, "parameters_id": PM25, "limit": 1000})["results"]
+# 1) find Ahmedabad stations that measure PM2.5
+locs = get("/locations", {"bbox": AHMEDABAD_BBOX, "parameters_id": PM25, "limit": 1000})["results"]
 print(f"Found {len(locs)} stations")
 
 sensors = []
