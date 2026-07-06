@@ -189,15 +189,18 @@ export function GridMap({
         type: 'fill',
         source: 'grid',
         paint: {
+          // 'step' (not 'interpolate') so each cell shows its band's exact
+          // color — an AQI-98 cell is green like its "Good" label, not
+          // 98%-blended toward yellow
           'fill-color': [
             'case',
             ['<', AQI_STATE, 0],
             '#ffffff',
             [
-              'interpolate',
-              ['linear'],
+              'step',
               AQI_STATE,
-              ...AQI_STOPS.flatMap((s) => [s.aqi, s.color]),
+              AQI_STOPS[0].color,
+              ...AQI_STOPS.slice(1).flatMap((s) => [s.aqi, s.color]),
             ],
           ],
           'fill-opacity': [
