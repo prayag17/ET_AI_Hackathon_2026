@@ -3,6 +3,17 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+
+# Large data files pls get it from Google Drive link in README
+ai_model/data/city_hour.csv
+ai_model/data/feature_store.csv
+ai_model/data/features_ready.csv
+ai_model/data/with_baselines.csv
+ai_model/data/model_predictions.csv
+ai_model/data/grid_pollution_demo.csv
+ai_model/data/interpolation_map.png
+
+
 # C extensions
 *.so
 
@@ -216,3 +227,5 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
