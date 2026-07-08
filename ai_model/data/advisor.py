@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import pandas as pd
-import anthropic
+from openai import OpenAI  # OpenRouter uses the OpenAI library structure
 
 # Configure logging to monitor fallback triggers
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -109,7 +109,7 @@ def detect_events(forecast_df, now, min_cat="Poor"):
 
 
 def generate_fallback_recommendations(events):
-    """Deterministic fallback system if the Anthropic API fails or network drops."""
+    """Deterministic fallback system if the API fails or network drops."""
     logging.warning("Using deterministic fallback template for recommendations.")
     fallback_recs = []
     for ev in events:
@@ -132,32 +132,39 @@ def generate_fallback_recommendations(events):
 
 
 def recommend(events):
-    """Queries Claude to generate structured recommendations, falling back on error."""
+    """Queries OpenRouter (Gemma Model) to generate structured recommendations."""
     if not events:
         return []
         
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
-        logging.error("ANTHROPIC_API_KEY not found in environment variables.")
+        logging.error("OPENROUTER_API_KEY not found in environment variables.")
         return generate_fallback_recommendations(events)
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        payload = json.dumps({"events": events, "grap": GRAP})
-        
-        # Using a stable, current production model string
-        msg = client.messages.create(
-            model="claude-3-5-sonnet-20241022", 
-            max_tokens=2000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": payload}],
+        # Pointing the client to the OpenRouter base URL endpoint
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
         )
         
-        text = msg.content[0].text
-        # Safety clean: isolate everything within the bounding outer JSON array brackets
+        payload = json.dumps({"events": events, "grap": GRAP})
+        
+        # Calling OpenRouter's free Gemma 4 instruction model 
+        response = client.chat.completions.create(
+            model="google/gemma-4-31b-it:free",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": payload}
+            ]
+        )
+        
+        text = response.choices[0].message.content
+        
+        # Clean response string to strip any markdown backticks if Gemma adds them
         text = text[text.find("["): text.rfind("]") + 1]
         return json.loads(text)
 
     except Exception as e:
-        logging.error(f"Claude API Error: {e}")
+        logging.error(f"OpenRouter API Error: {e}")
         return generate_fallback_recommendations(events)
