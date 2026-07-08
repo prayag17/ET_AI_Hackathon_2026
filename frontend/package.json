@@ -27,6 +27,10 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.545.0",
+<<<<<<< HEAD
+=======
+    "maplibre-gl": "^5.24.0",
+>>>>>>> df10704ebcf95f53795bcb41d20811040ef14c6c
     "radix-ui": "^1.6.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -43,6 +47,10 @@
     "@tanstack/router-plugin": "latest",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
+<<<<<<< HEAD
+=======
+    "@types/geojson": "^7946.0.16",
+>>>>>>> df10704ebcf95f53795bcb41d20811040ef14c6c
     "@types/node": "^22.10.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
