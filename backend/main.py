@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from backend.routers import maps
+from backend.routers import forecast
 
 app = FastAPI()
 
@@ -15,3 +16,4 @@ def read_item(item_id: int, q: str | None = None):
 
 
 app.include_router(maps.router, prefix="/maps", tags=["Maps"])
+app.include_router(forecast.router, prefix="/maps", tags=["Maps"])

@@ -132,8 +132,6 @@ body {
   --sidebar-ring: oklch(0.56 0.021 213.5);
 }
 
-<<<<<<< HEAD
-=======
 /* MapLibre chrome — keep it in line with the dark shadcn palette */
 .maplibregl-canvas {
   outline: none;
@@ -202,7 +200,80 @@ body {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
 }
 
->>>>>>> df10704ebcf95f53795bcb41d20811040ef14c6c
+/* ── Time Slider ──────────────────────────────────────────────────────────── */
+/*
+ * Cross-browser range input with a filled left-track using a CSS custom
+ * property --pct set inline from React.  Webkit needs -webkit-appearance
+ * none and explicit thumb + track pseudo-elements; Firefox uses ::-moz-range-*.
+ */
+.time-slider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  cursor: pointer;
+  outline: none;
+  /* filled-left gradient driven by the --pct custom property */
+  background: linear-gradient(
+    to right,
+    var(--primary) 0%,
+    var(--primary) var(--pct, 0%),
+    var(--border) var(--pct, 0%),
+    var(--border) 100%
+  );
+}
+
+/* Webkit thumb */
+.time-slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--foreground);
+  border: 2px solid var(--background);
+  box-shadow: 0 0 0 1px var(--primary);
+  cursor: grab;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.time-slider-input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 35%, transparent);
+}
+
+/* Firefox thumb */
+.time-slider-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--foreground);
+  border: 2px solid var(--background);
+  box-shadow: 0 0 0 1px var(--primary);
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+.time-slider-input::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.25);
+}
+
+/* Firefox filled track */
+.time-slider-input::-moz-range-progress {
+  background: var(--primary);
+  height: 4px;
+  border-radius: 9999px;
+}
+
+/* Focus ring */
+.time-slider-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 40%, transparent);
+}
+
+/* Disabled state */
+.time-slider-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 @layer base {
   * {
     @apply border-border outline-ring/50;
