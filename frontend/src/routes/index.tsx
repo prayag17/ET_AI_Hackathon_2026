@@ -1,16 +1,3 @@
-<<<<<<< HEAD
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/')({ component: Home })
-
-function Home() {
-  return (
-    <div className="p-8">
-      <h1 className="text-4xl font-bold">Welcome to TanStack Start</h1>
-      <p className="mt-4 text-lg">
-        Edit <code>src/routes/index.tsx</code> to get started.
-      </p>
-=======
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -176,7 +163,6 @@ function Home() {
           )}
         </div>
       </aside>
->>>>>>> df10704ebcf95f53795bcb41d20811040ef14c6c
     </div>
   )
 }
