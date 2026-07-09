@@ -10,7 +10,8 @@ def test_pipeline():
     data = [
         {"cell_id": "Cell_101", "datetime": now + pd.Timedelta(hours=12), "pred_aqi": 120, "lat": 28.6, "lon": 77.2, "confidence": 0.9},
         {"cell_id": "Cell_101", "datetime": now + pd.Timedelta(hours=40), "pred_aqi": 350, "lat": 28.6, "lon": 77.2, "confidence": 0.85},
-        {"cell_id": "Cell_102", "datetime": now + pd.Timedelta(hours=24), "pred_aqi": 45,  "lat": 28.7, "lon": 77.3, "confidence": 0.95}
+        {"cell_id": "Cell_102", "datetime": now + pd.Timedelta(hours=24), "pred_aqi": 45,  "lat": 28.7, "lon": 77.3, "confidence": 0.95},
+        {"cell_id": "Cell_103", "datetime": now + pd.Timedelta(hours=30), "pred_aqi": 470,  "lat": 23.0, "lon": 72.6, "confidence": 0.8},
     ]
     
     forecast_df = pd.DataFrame(data)
