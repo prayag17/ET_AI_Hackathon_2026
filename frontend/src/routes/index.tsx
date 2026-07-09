@@ -5,6 +5,8 @@ import { LoaderCircle, MapPinned } from 'lucide-react'
 import type { FeatureCollection } from 'geojson'
 import { AQI_STOPS, GridMap, aqiColor } from '@/components/grid-map'
 import type { GridCell } from '@/components/grid-map'
+import { TimeSlider } from '@/components/time-slider'
+import { AqiLegend } from '@/components/aqi-legend'
 
 function aqiLabel(aqi: number): string {
   let label = AQI_STOPS[0].label
@@ -22,6 +24,7 @@ async function fetchGeoJson(path: string): Promise<FeatureCollection> {
 
 function Home() {
   const [hovered, setHovered] = useState<GridCell | null>(null)
+  const [offsetHours, setOffsetHours] = useState(0)
 
   const grid = useQuery({
     queryKey: ['grid'],
@@ -45,6 +48,37 @@ function Home() {
     },
   })
 
+  // Forecast: all 73 hourly snapshots (T+0 … T+72)
+  const forecast = useQuery({
+    queryKey: ['forecast'],
+    queryFn: async () => {
+      const res = await fetch('/api/maps/getForecast')
+      if (!res.ok) throw new Error(`getForecast responded with ${res.status}`)
+      return res.json() as Promise<{
+        base_datetime: string
+        snapshots: Array<{
+          offset_hours: number
+          base_datetime: string
+          values: Record<string, number>
+        }>
+      }>
+    },
+    staleTime: 5 * 60 * 1000, // 5 min — forecast is deterministic, no need to hammer the API
+  })
+
+  // The active pollution data shown on the map:
+  //   • offset 0 → use the real snapshot from /getPollution (source of truth)
+  //   • offset > 0 → use the corresponding forecast snapshot
+  const activePollution =
+    offsetHours === 0
+      ? pollution.data
+      : forecast.data
+        ? {
+            datetime: forecast.data.snapshots[offsetHours]?.base_datetime ?? '',
+            values: forecast.data.snapshots[offsetHours]?.values ?? {},
+          }
+        : pollution.data
+
   return (
     <div className="dark relative h-dvh w-full overflow-hidden bg-background text-foreground">
       {grid.data && boundary.data && pollution.data && (
@@ -52,7 +86,7 @@ function Home() {
           grid={grid.data}
           boundary={boundary.data}
           onHoverCell={setHovered}
-          pollutionData={pollution.data}
+          pollutionData={activePollution}
         />
       )}
 
@@ -121,7 +155,7 @@ function Home() {
                 </span>
               </div>
               {(() => {
-                const aqi = pollution.data?.values[hovered.grid_id]
+                const aqi = activePollution?.values[hovered.grid_id]
                 if (aqi === undefined) return null
                 return (
                   <div className="mt-3 flex items-center gap-2">
@@ -163,6 +197,24 @@ function Home() {
           )}
         </div>
       </aside>
+      {/* AQI Legend — right side, vertically centred */}
+      <div className="pointer-events-none absolute right-4 top-1/2 z-10 -translate-y-1/2">
+        <div className="pointer-events-auto">
+          <AqiLegend />
+        </div>
+      </div>
+
+      {/* Time Slider — bottom-center, above the map controls */}
+      <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
+        <div className="pointer-events-auto rounded-xl border bg-card/80 px-5 py-4 shadow-lg backdrop-blur-md">
+          <TimeSlider
+            offset={offsetHours}
+            onOffsetChange={setOffsetHours}
+            baseDatetime={forecast.data?.base_datetime ?? pollution.data?.datetime}
+            loading={forecast.isPending}
+          />
+        </div>
+      </div>
     </div>
   )
 }
