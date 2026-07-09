@@ -4,41 +4,24 @@ import logging
 import pandas as pd
 from openai import OpenAI  # OpenRouter uses the OpenAI library structure
 
+from grap import GRAP_STAGES, get_recommendation
+
 # Configure logging to monitor fallback triggers
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Hardcoded constants for GRAP mapping
-ORDER = ["Good", "Satisfactory", "Moderate", "Poor", "Very Poor", "Severe"]
+ORDER = ["Good", "Satisfactory", "Moderate", "Poor", "Very Poor", "Severe", "Severe+"]
 BANDS = [
     (50, "Good"), (100, "Satisfactory"), (200, "Moderate"),
-    (300, "Poor"), (400, "Very Poor"), (10000, "Severe")
+    (300, "Poor"), (400, "Very Poor"), (10000, "Severe"), (10000, "Severe+")
 ]
 
 GRAP = {
-    "Poor": {
-        "stage": "Stage I",
-        "measures": [
-            "Mechanized road sweeping + water sprinkling",
-            "Strict dust control at construction sites",
-            "Ban open waste/biomass burning"
-        ]
-    },
-    "Very Poor": {
-        "stage": "Stage II",
-        "measures": [
-            "Intensify sprinkling on hotspot roads",
-            "Raise parking fees to cut private vehicle use",
-            "Boost public transport frequency"
-        ]
-    },
-    "Severe": {
-        "stage": "Stage III",
-        "measures": [
-            "Halt non-essential construction & demolition",
-            "Restrict older/higher-emission vehicles",
-            "Close brick kilns and stone crushers"
-        ]
-    },
+    stage.category:{
+        "stage": stage.stage_name,
+        "measures": stage.key_actions[:3],
+    }
+    for stage in GRAP_STAGES
 }
 
 SYSTEM_PROMPT = """You are an air-quality response advisor for a city pollution board.
@@ -113,20 +96,19 @@ def generate_fallback_recommendations(events):
     logging.warning("Using deterministic fallback template for recommendations.")
     fallback_recs = []
     for ev in events:
-        cat = ev["category"]
-        grap_info = GRAP.get(cat, {"stage": "Unknown", "measures": ["Monitor AQI levels closely."]})
-        primary_measure = grap_info["measures"][0]
-        
-        priority = "high" if cat in ["Severe", "Very Poor"] else "medium"
+        rec = get_recommendation(ev["peak_aqi"], max_actions=1)
+        primary_measure = rec["key_actions"][0] if rec["key_actions"] else "Monitor AQI levels closely."
+        priority = "high" if rec["severity_rank"] >= 2 else "medium"
         
         fallback_recs.append({
             "cell_id": ev["cell_id"],
             "action": primary_measure,
-            "grap_stage": grap_info["stage"],
+            "grap_stage": rec["grap_stage"],
             "start_by": f"Within {ev['lead_time_hours']} hours",
-            "reason": f"AQI predicted to cross into {cat} threshold (Peak: {ev['peak_aqi']}).",
+            "reason": f"AQI predicted to cross into {ev['category']} threshold (Peak: {ev['peak_aqi']}).",
             "priority": priority,
-            "confidence": ev["confidence"]
+            "confidence": ev["confidence"],
+            "grap_source": rec["source"],
         })
     return fallback_recs
 
@@ -163,7 +145,14 @@ def recommend(events):
         
         # Clean response string to strip any markdown backticks if Gemma adds them
         text = text[text.find("["): text.rfind("]") + 1]
-        return json.loads(text)
+        recs = json.loads(text)
+        
+        stage_source = {s.stage_name: s for s in GRAP_STAGES}
+        for r in recs:
+            s = stage_source.get(r.get("grap_stage"))
+            if s:
+                r["grap_source"] = get_recommendation(s.aqi_min, max_actions=1)["source"]
+        return recs
 
     except Exception as e:
         logging.error(f"OpenRouter API Error: {e}")
