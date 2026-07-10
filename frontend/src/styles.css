@@ -132,7 +132,7 @@ body {
   --sidebar-ring: oklch(0.56 0.021 213.5);
 }
 
-/* MapLibre chrome — keep it in line with the dark shadcn palette */
+/* MapLibre chrome — keep it in line with the shadcn palette (both themes) */
 .maplibregl-canvas {
   outline: none;
 }
@@ -148,12 +148,32 @@ body {
   background: var(--card) !important;
 }
 
-/* Keep controls above the page's edge-vignette overlay (z-5) */
-.maplibregl-ctrl-top-left,
-.maplibregl-ctrl-top-right,
-.maplibregl-ctrl-bottom-left,
-.maplibregl-ctrl-bottom-right {
+/* Keep controls above the map's edge-vignette overlay (z-5). The extra
+ * .maplibregl-map ancestor out-specifies maplibre-gl.css's own z-index: 2,
+ * which otherwise wins the cascade because it loads after this file. */
+.maplibregl-map .maplibregl-ctrl-top-left,
+.maplibregl-map .maplibregl-ctrl-top-right,
+.maplibregl-map .maplibregl-ctrl-bottom-left,
+.maplibregl-map .maplibregl-ctrl-bottom-right {
   z-index: 10;
+}
+
+/* Edge vignette over the map — fades the edges into the page background
+ * (the same color the sidebar and dock sit on) so the map melts into the
+ * surrounding UI in both themes, with a soft inset glow for 3D depth. */
+.map-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 120% 100% at 50% 50%,
+    transparent 50%,
+    color-mix(in oklab, var(--background) 60%, transparent) 80%,
+    var(--background) 100%
+  );
+  box-shadow: inset 0 0 110px 30px
+    color-mix(in oklab, var(--background) 75%, transparent);
 }
 
 /* Control buttons (zoom, reset view, fullscreen) */
@@ -180,8 +200,9 @@ body {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
-/* MapLibre's stock icons are dark SVGs — flip them for the dark theme */
-.maplibregl-ctrl button .maplibregl-ctrl-icon {
+/* MapLibre's stock icons (+, −, fullscreen) are baked-in dark SVG images,
+ * not currentColor — flip them light only when the dark theme is active */
+.dark .maplibregl-ctrl button .maplibregl-ctrl-icon {
   filter: invert(0.9);
 }
 
@@ -200,83 +221,43 @@ body {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
 }
 
-<<<<<<< HEAD
-=======
-/* ── Time Slider ──────────────────────────────────────────────────────────── */
-/*
- * Cross-browser range input with a filled left-track using a CSS custom
- * property --pct set inline from React.  Webkit needs -webkit-appearance
- * none and explicit thumb + track pseudo-elements; Firefox uses ::-moz-range-*.
+/* ── Motion ─────────────────────────────────────────────────────────────────
+ * One-shot entrance utilities. @starting-style makes the transition fire on
+ * mount, so entrances stay interruptible (unlike keyframes) and exits are
+ * instant — swapped-in content eases in, swapped-out content never lags.
  */
-.time-slider-input {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  border-radius: 9999px;
-  cursor: pointer;
-  outline: none;
-  /* filled-left gradient driven by the --pct custom property */
-  background: linear-gradient(
-    to right,
-    var(--primary) 0%,
-    var(--primary) var(--pct, 0%),
-    var(--border) var(--pct, 0%),
-    var(--border) 100%
-  );
+@layer utilities {
+  /* Fade + rise — for content blocks entering a panel */
+  .enter-fade-up {
+    transition:
+      opacity 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      translate 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    @starting-style {
+      opacity: 0;
+      translate: 0 8px;
+    }
+  }
+  /* Fade only — for large surfaces where movement would distract */
+  .enter-fade {
+    transition: opacity 350ms ease-out;
+    @starting-style {
+      opacity: 0;
+    }
+  }
 }
 
-/* Webkit thumb */
-.time-slider-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--foreground);
-  border: 2px solid var(--background);
-  box-shadow: 0 0 0 1px var(--primary);
-  cursor: grab;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-.time-slider-input::-webkit-slider-thumb:active {
-  cursor: grabbing;
-  transform: scale(1.25);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 35%, transparent);
+/* Quality floor: honour reduced-motion everywhere. The spinner is exempt —
+ * a frozen loading indicator reads as a hang, not as reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *:not([data-slot='spinner']),
+  *:not([data-slot='spinner'])::before,
+  *:not([data-slot='spinner'])::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-/* Firefox thumb */
-.time-slider-input::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--foreground);
-  border: 2px solid var(--background);
-  box-shadow: 0 0 0 1px var(--primary);
-  cursor: grab;
-  transition: transform 0.1s ease;
-}
-.time-slider-input::-moz-range-thumb:active {
-  cursor: grabbing;
-  transform: scale(1.25);
-}
-
-/* Firefox filled track */
-.time-slider-input::-moz-range-progress {
-  background: var(--primary);
-  height: 4px;
-  border-radius: 9999px;
-}
-
-/* Focus ring */
-.time-slider-input:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 40%, transparent);
-}
-
-/* Disabled state */
-.time-slider-input:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
->>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
 @layer base {
   * {
     @apply border-border outline-ring/50;

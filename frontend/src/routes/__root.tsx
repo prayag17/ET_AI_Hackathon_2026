@@ -5,6 +5,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import '../styles.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 export const Route = createRootRoute({
   component: RootComponent,
@@ -13,7 +14,9 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="et-ui-theme">
-      <Outlet />
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
       <TanStackDevtools
         config={{
           position: 'bottom-right',
