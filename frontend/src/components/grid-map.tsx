@@ -22,17 +22,20 @@ interface GridMapProps {
   grid: FeatureCollection
   boundary: FeatureCollection
   onHoverCell?: (cell: GridCell | null) => void
+  onClickCell?: (cell: GridCell) => void
   pollutionData?: { datetime: string; values: Record<string, number> }
 }
 
 // Indian CPCB AQI scale — drives the cell colors and is exported for the
-// legend / hover panel to stay consistent with the map
+// legend / hover panel to stay consistent with the map.
+// Official 6-band scale: https://cpcb.nic.in/displaypdf.php?id=aqi
 export const AQI_STOPS = [
-  { aqi: 0, color: '#22c55e', label: 'Good' },
-  { aqi: 100, color: '#eab308', label: 'Moderate' },
-  { aqi: 200, color: '#f97316', label: 'Poor' },
-  { aqi: 300, color: '#ef4444', label: 'Very poor' },
-  { aqi: 400, color: '#991b1b', label: 'Severe' },
+  { aqi: 0,   color: '#22c55e', label: 'Good' },
+  { aqi: 51,  color: '#a3e635', label: 'Satisfactory' },
+  { aqi: 101, color: '#eab308', label: 'Moderate' },
+  { aqi: 201, color: '#f97316', label: 'Poor' },
+  { aqi: 301, color: '#ef4444', label: 'Very Poor' },
+  { aqi: 401, color: '#991b1b', label: 'Severe' },
 ]
 
 export function aqiColor(aqi: number): string {
@@ -120,12 +123,15 @@ export function GridMap({
   grid,
   boundary,
   onHoverCell,
+  onClickCell,
   pollutionData,
 }: GridMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const onHoverRef = useRef(onHoverCell)
   onHoverRef.current = onHoverCell
+  const onClickRef = useRef(onClickCell)
+  onClickRef.current = onClickCell
   // Values may arrive before or after the map's 'load' event; keep the latest
   // in a ref so the load handler can pick them up either way
   const pollutionRef = useRef(pollutionData)
@@ -279,6 +285,13 @@ export function GridMap({
         }
         onHoverRef.current?.(null)
         map.getCanvas().style.cursor = ''
+      })
+
+      // Click — fire onClickCell so the detail panel can open
+      map.on('click', 'grid-fill', (e) => {
+        const feature = e.features?.[0]
+        if (!feature) return
+        onClickRef.current?.(feature.properties as unknown as GridCell)
       })
     })
 
