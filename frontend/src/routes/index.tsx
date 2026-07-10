@@ -75,7 +75,7 @@ function Home() {
             values: forecast.data.snapshots[offsetHours]?.values ?? {},
           }
         : pollution.data
-
+  console.log("activePollution time ", activePollution?.datetime)
   // City-mean AQI per forecast hour — drives the timeline heat-track
   const cityTrend = useMemo(() => {
     if (!forecast.data) return undefined

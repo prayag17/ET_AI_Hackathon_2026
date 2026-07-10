@@ -1,0 +1,7 @@
+pandas>=2.2
+numpy>=1.26
+lightgbm>=4.5
+joblib>=1.4
+requests>=2.34
+# Optional, only needed for interpolation.py --plot
+matplotlib>=3.8

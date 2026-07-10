@@ -67,7 +67,7 @@ try:
     })
     weather["month"] = weather["timestamp"].dt.month
     weather["hour"]  = weather["timestamp"].dt.hour
-    # Build month+hour average — apply to 2015-2020 AQI dates by season
+    # Build month+hour average — apply to 2021-2026 AQI dates by season
     weather_pattern = (
         weather.groupby(["month", "hour"])[["temp", "wind_speed", "humidity"]]
                .mean().reset_index()
@@ -76,16 +76,19 @@ try:
     ahm["hour"]  = ahm["Datetime"].dt.hour
     ahm = ahm.merge(weather_pattern, on=["month", "hour"], how="left")
     ahm = ahm.drop(columns=["month", "hour"])
-    print(f"  Weather joined via seasonal month+hour pattern (real Delhi data)")
+    print(f"  Weather joined via seasonal month+hour pattern (real Ahmedabad data)")
 except FileNotFoundError:
     print("  weather_history.csv not found — using Ahmedabad climate defaults")
     CLIMATE = {1:(18,6,55),2:(21,7,45),3:(27,9,35),4:(33,10,25),
                5:(37,11,20),6:(34,14,50),7:(31,13,70),8:(30,11,72),
                9:(30,9,65),10:(28,7,50),11:(23,6,45),12:(19,6,52)}
     ahm["month"] = ahm["Datetime"].dt.month
-    ahm["temp"]       = ahm["month"].map(lambda m: CLIMATE[m][0])
-    ahm["wind_speed"] = ahm["month"].map(lambda m: CLIMATE[m][1])
-    ahm["humidity"]   = ahm["month"].map(lambda m: CLIMATE[m][2])
+    ahm["temp"] = ahm["month"].map(
+        lambda m: CLIMATE[int(m)][0] if pd.notna(m) else np.nan)
+    ahm["wind_speed"] = ahm["month"].map(
+        lambda m: CLIMATE[int(m)][1] if pd.notna(m) else np.nan)
+    ahm["humidity"] = ahm["month"].map(
+        lambda m: CLIMATE[int(m)][2] if pd.notna(m) else np.nan)
     ahm = ahm.drop(columns=["month"])
 
 # step 5: Traffic index
@@ -99,7 +102,7 @@ ahm["traffic_index"] = ahm["Datetime"].apply(
 # step 6: IDW interpolation, expand city reading to 502 grid cells
 print(f"\nStep 6: IDW interpolation across {len(grid)} cells...")
 print(f"  Processing {len(ahm)} timestamps × {len(sensors)} stations...")
-print(f"  This will take several minutes — go get chai ☕")
+print(f"  This will take several minutes — go get chai (na coffee better ;) ☕")
 
 # Station-specific pollution factors (from interpolation.py)
 STATION_FACTOR = {
@@ -142,9 +145,12 @@ for i, (_, row) in enumerate(ahm.iterrows()):
     cell_df = grid[["grid_cell_id"]].copy()
     cell_df["timestamp"]     = row["Datetime"]
     cell_df["aqi"]           = np.round(grid_values, 1).clip(min=0)
-    cell_df["pm25"]          = np.round(row["PM2.5"] * (grid_values / row["AQI"].clip(min=1)), 2).clip(min=0)
-    cell_df["no2"]           = np.round(row["NO2"]   * (grid_values / row["AQI"].clip(min=1)), 2).clip(min=0)
-    cell_df["co"]            = np.round(row["CO"]    * (grid_values / row["AQI"].clip(min=1)), 4).clip(min=0)
+    cell_df["pm25"] = np.round(
+        row["PM2.5"] * (grid_values / row["AQI"]), 2).clip(min=0)
+    cell_df["no2"] = np.round(
+        row["NO2"] * (grid_values / row["AQI"]), 2).clip(min=0)
+    cell_df["co"] = np.round(
+        row["CO"] * (grid_values / row["AQI"]), 4).clip(min=0)
     cell_df["wind_speed"]    = row["wind_speed"]
     cell_df["temp"]          = row["temp"]
     cell_df["humidity"]      = row["humidity"]
