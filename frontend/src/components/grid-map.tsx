@@ -22,11 +22,23 @@ interface GridMapProps {
   grid: FeatureCollection
   boundary: FeatureCollection
   onHoverCell?: (cell: GridCell | null) => void
+<<<<<<< HEAD
+=======
   onClickCell?: (cell: GridCell) => void
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   pollutionData?: { datetime: string; values: Record<string, number> }
 }
 
 // Indian CPCB AQI scale — drives the cell colors and is exported for the
+<<<<<<< HEAD
+// legend / hover panel to stay consistent with the map
+export const AQI_STOPS = [
+  { aqi: 0, color: '#22c55e', label: 'Good' },
+  { aqi: 100, color: '#eab308', label: 'Moderate' },
+  { aqi: 200, color: '#f97316', label: 'Poor' },
+  { aqi: 300, color: '#ef4444', label: 'Very poor' },
+  { aqi: 400, color: '#991b1b', label: 'Severe' },
+=======
 // legend / hover panel to stay consistent with the map.
 // Official 6-band scale: https://cpcb.nic.in/displaypdf.php?id=aqi
 export const AQI_STOPS = [
@@ -36,6 +48,7 @@ export const AQI_STOPS = [
   { aqi: 201, color: '#f97316', label: 'Poor' },
   { aqi: 301, color: '#ef4444', label: 'Very Poor' },
   { aqi: 401, color: '#991b1b', label: 'Severe' },
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
 ]
 
 export function aqiColor(aqi: number): string {
@@ -123,15 +136,21 @@ export function GridMap({
   grid,
   boundary,
   onHoverCell,
+<<<<<<< HEAD
+=======
   onClickCell,
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   pollutionData,
 }: GridMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const onHoverRef = useRef(onHoverCell)
   onHoverRef.current = onHoverCell
+<<<<<<< HEAD
+=======
   const onClickRef = useRef(onClickCell)
   onClickRef.current = onClickCell
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   // Values may arrive before or after the map's 'load' event; keep the latest
   // in a ref so the load handler can pick them up either way
   const pollutionRef = useRef(pollutionData)
@@ -286,6 +305,8 @@ export function GridMap({
         onHoverRef.current?.(null)
         map.getCanvas().style.cursor = ''
       })
+<<<<<<< HEAD
+=======
 
       // Click — fire onClickCell so the detail panel can open
       map.on('click', 'grid-fill', (e) => {
@@ -293,6 +314,7 @@ export function GridMap({
         if (!feature) return
         onClickRef.current?.(feature.properties as unknown as GridCell)
       })
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
     })
 
     return () => {
