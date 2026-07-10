@@ -2,10 +2,10 @@ import os, pandas as pd
 
 # same points as your other pulls (grid-cell centroids or station coords)
 points = pd.DataFrame({
-    "cell_id": ["c001", "c002", "c003"],
-    "lat":     [28.63, 28.70, 28.55],
-    "lon":     [77.22, 77.10, 77.25],
-    "road_density": [1.0, 0.6, 0.8],     # 0-1; leave all 1.0 if you skip the OSM step
+    "cell_id": ["AHM-CENTER"],
+    "lat":     [23.03],
+    "lon":     [72.58],
+    "road_density": [1.0],     # 0-1; leave all 1.0 if you skip the OSM step
 })
 
 hours = pd.date_range("2023-01-01", "2025-01-05 23:00", freq="h", tz="Asia/Kolkata")
