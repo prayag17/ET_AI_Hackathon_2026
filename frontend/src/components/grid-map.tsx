@@ -3,10 +3,15 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { ExpressionSpecification } from 'maplibre-gl'
 import type { FeatureCollection } from 'geojson'
+import { AQI_STOPS } from '@/lib/aqi'
+import { useTheme } from '@/components/theme-provider'
 
-// OpenFreeMap's dark basemap — free, no API key, rebuilt weekly from fresh
-// OSM data (much more current than Carto's), matches the shadcn dark palette
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/dark'
+// OpenFreeMap basemaps — free, no API key, rebuilt weekly from fresh OSM
+// data (much more current than Carto's), matching the shadcn palettes
+const MAP_STYLES = {
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+  light: 'https://tiles.openfreemap.org/styles/positron',
+} as const
 
 export interface GridCell {
   grid_id: string
@@ -22,39 +27,10 @@ interface GridMapProps {
   grid: FeatureCollection
   boundary: FeatureCollection
   onHoverCell?: (cell: GridCell | null) => void
-<<<<<<< HEAD
-=======
   onClickCell?: (cell: GridCell) => void
->>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   pollutionData?: { datetime: string; values: Record<string, number> }
-}
-
-// Indian CPCB AQI scale — drives the cell colors and is exported for the
-<<<<<<< HEAD
-// legend / hover panel to stay consistent with the map
-export const AQI_STOPS = [
-  { aqi: 0, color: '#22c55e', label: 'Good' },
-  { aqi: 100, color: '#eab308', label: 'Moderate' },
-  { aqi: 200, color: '#f97316', label: 'Poor' },
-  { aqi: 300, color: '#ef4444', label: 'Very poor' },
-  { aqi: 400, color: '#991b1b', label: 'Severe' },
-=======
-// legend / hover panel to stay consistent with the map.
-// Official 6-band scale: https://cpcb.nic.in/displaypdf.php?id=aqi
-export const AQI_STOPS = [
-  { aqi: 0,   color: '#22c55e', label: 'Good' },
-  { aqi: 51,  color: '#a3e635', label: 'Satisfactory' },
-  { aqi: 101, color: '#eab308', label: 'Moderate' },
-  { aqi: 201, color: '#f97316', label: 'Poor' },
-  { aqi: 301, color: '#ef4444', label: 'Very Poor' },
-  { aqi: 401, color: '#991b1b', label: 'Severe' },
->>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
-]
-
-export function aqiColor(aqi: number): string {
-  let stop = AQI_STOPS[0]
-  for (const s of AQI_STOPS) if (aqi >= s.aqi) stop = s
-  return stop.color
+  /** grid_id of the pinned cell — outlined on the map */
+  selectedCellId?: string | null
 }
 
 // Cells with no reading yet get -1 so the paint rules can tell them apart
@@ -136,29 +112,54 @@ export function GridMap({
   grid,
   boundary,
   onHoverCell,
-<<<<<<< HEAD
-=======
   onClickCell,
->>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   pollutionData,
+  selectedCellId,
 }: GridMapProps) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  // Camera carried across map re-creation (theme switches rebuild the map,
+  // since maplibre's setStyle would drop our custom sources/layers anyway)
+  const cameraRef = useRef<{
+    center: maplibregl.LngLat
+    zoom: number
+  } | null>(null)
   const onHoverRef = useRef(onHoverCell)
   onHoverRef.current = onHoverCell
-<<<<<<< HEAD
-=======
   const onClickRef = useRef(onClickCell)
   onClickRef.current = onClickCell
->>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   // Values may arrive before or after the map's 'load' event; keep the latest
   // in a ref so the load handler can pick them up either way
   const pollutionRef = useRef(pollutionData)
   pollutionRef.current = pollutionData
+  // Same race applies to the selection: keep the target and the currently
+  // applied id in refs so both the effect and the load handler can sync them
+  const selectedRef = useRef<string | null>(selectedCellId ?? null)
+  selectedRef.current = selectedCellId ?? null
+  const appliedSelectionRef = useRef<string | null>(null)
+
+  const applySelection = (map: maplibregl.Map) => {
+    if (!map.getSource('grid')) return
+    const prev = appliedSelectionRef.current
+    const next = selectedRef.current
+    if (prev && prev !== next) {
+      map.setFeatureState({ source: 'grid', id: prev }, { selected: false })
+    }
+    if (next) {
+      map.setFeatureState({ source: 'grid', id: next }, { selected: true })
+    }
+    appliedSelectionRef.current = next
+  }
 
   useEffect(() => {
     if (mapRef.current) applyPollution(mapRef.current, pollutionData?.values)
   }, [pollutionData])
+
+  useEffect(() => {
+    if (mapRef.current) applySelection(mapRef.current)
+  }, [selectedCellId])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -172,11 +173,14 @@ export function GridMap({
       [bounds[0][0] - padLon, bounds[0][1] - padLat],
       [bounds[1][0] + padLon, bounds[1][1] + padLat],
     ]
+    // First mount fits the city; theme switches keep the previous camera
+    const camera = cameraRef.current
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE,
-      bounds,
-      fitBoundsOptions: { padding: 48 },
+      style: MAP_STYLES[isDark ? 'dark' : 'light'],
+      ...(camera
+        ? { center: camera.center, zoom: camera.zoom }
+        : { bounds, fitBoundsOptions: { padding: 48 } }),
       maxBounds,
       attributionControl: { compact: true },
       dragRotate: false,
@@ -199,6 +203,9 @@ export function GridMap({
 
     let hoveredId: string | number | null = null
 
+    // Overlay ink — white lattice over the dark basemap, near-black over light
+    const ink = isDark ? '#ffffff' : '#1a1a1a'
+
     map.on('load', () => {
       map.addSource('grid', {
         type: 'geojson',
@@ -220,7 +227,7 @@ export function GridMap({
           'fill-color': [
             'case',
             ['<', AQI_STATE, 0],
-            '#ffffff',
+            ink,
             [
               'step',
               AQI_STATE,
@@ -241,7 +248,7 @@ export function GridMap({
         type: 'line',
         source: 'grid',
         paint: {
-          'line-color': '#ffffff',
+          'line-color': ink,
           // fade the lattice in as you zoom closer; maplibre requires the
           // zoom expression at the top level, so hover lives in the outputs
           'line-opacity': [
@@ -261,19 +268,38 @@ export function GridMap({
           ],
         },
       })
+      // Pinned-cell outline — sits above the lattice so the selection stays
+      // visible at any zoom (feature-state can't be used in filters, so the
+      // layer is always present and non-selected cells render transparent)
+      map.addLayer({
+        id: 'grid-selected',
+        type: 'line',
+        source: 'grid',
+        paint: {
+          'line-color': ink,
+          'line-opacity': [
+            'case',
+            ['boolean', ['feature-state', 'selected'], false],
+            0.95,
+            0,
+          ],
+          'line-width': 2.5,
+        },
+      })
       map.addLayer({
         id: 'boundary-line',
         type: 'line',
         source: 'boundary',
         paint: {
-          'line-color': '#ffffff',
+          'line-color': ink,
           'line-opacity': 0.35,
           'line-width': 1.5,
         },
       })
 
-      // Values may have arrived while the style was still loading
+      // Values / selection may have arrived while the style was still loading
       applyPollution(map, pollutionRef.current?.values)
+      applySelection(map)
 
       map.on('mousemove', 'grid-fill', (e) => {
         const feature = e.features?.[0]
@@ -305,8 +331,6 @@ export function GridMap({
         onHoverRef.current?.(null)
         map.getCanvas().style.cursor = ''
       })
-<<<<<<< HEAD
-=======
 
       // Click — fire onClickCell so the detail panel can open
       map.on('click', 'grid-fill', (e) => {
@@ -314,20 +338,25 @@ export function GridMap({
         if (!feature) return
         onClickRef.current?.(feature.properties as unknown as GridCell)
       })
->>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
     })
 
     return () => {
+      // Remember the view and forget map-scoped feature-state so the next
+      // map (e.g. after a theme switch) resumes where this one left off
+      cameraRef.current = { center: map.getCenter(), zoom: map.getZoom() }
+      appliedSelectionRef.current = null
       mapRef.current = null
       map.remove()
     }
-  }, [grid, boundary])
+  }, [grid, boundary, isDark])
 
   // maplibre-gl.css forces `position: relative` on the map element itself,
-  // so size it with h-full inside an absolutely-positioned wrapper instead
+  // so size it with h-full inside an absolutely-positioned wrapper instead.
+  // The wrapper fades in when data arrives (this component mounts data-ready).
   return (
-    <div className="absolute inset-0">
+    <div className="enter-fade absolute inset-0">
       <div ref={containerRef} className="h-full w-full" />
+      <div aria-hidden className="map-vignette" />
     </div>
   )
 }
