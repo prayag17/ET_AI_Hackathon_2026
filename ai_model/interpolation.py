@@ -167,7 +167,7 @@ def demo_readings(sensors):
     # --- CONFIGURATION FLAG ---
     # Set this to False to use the latest real AQI data (which might be low/moderate).
     # Set this to True to force the snapshot to a historical Severe-AQI winter date.
-    USE_SEVERE_DEMO_DATE = True
+    USE_SEVERE_DEMO_DATE = False
     
     if USE_SEVERE_DEMO_DATE:
         winter_data = city[(city["Datetime"] >= "2019-11-01") & (city["Datetime"] < "2019-12-01")]

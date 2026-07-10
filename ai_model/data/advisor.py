@@ -4,7 +4,10 @@ import logging
 import pandas as pd
 from openai import OpenAI  # OpenRouter uses the OpenAI library structure
 
-from grap import GRAP_STAGES, get_recommendation
+try:
+    from grap import GRAP_STAGES, get_recommendation
+except ModuleNotFoundError:
+    from ai_model.grap import GRAP_STAGES, get_recommendation
 
 # Configure logging to monitor fallback triggers
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
