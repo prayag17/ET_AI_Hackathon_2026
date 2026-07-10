@@ -7,6 +7,7 @@ import { AQI_STOPS, GridMap, aqiColor } from '@/components/grid-map'
 import type { GridCell } from '@/components/grid-map'
 import { TimeSlider } from '@/components/time-slider'
 import { AqiLegend } from '@/components/aqi-legend'
+import { CellDetailPanel } from '@/components/cell-detail-panel'
 
 function aqiLabel(aqi: number): string {
   let label = AQI_STOPS[0].label
@@ -25,6 +26,7 @@ async function fetchGeoJson(path: string): Promise<FeatureCollection> {
 function Home() {
   const [hovered, setHovered] = useState<GridCell | null>(null)
   const [offsetHours, setOffsetHours] = useState(0)
+  const [clickedCell, setClickedCell] = useState<GridCell | null>(null)
 
   const grid = useQuery({
     queryKey: ['grid'],
@@ -86,7 +88,19 @@ function Home() {
           grid={grid.data}
           boundary={boundary.data}
           onHoverCell={setHovered}
+          onClickCell={setClickedCell}
           pollutionData={activePollution}
+        />
+      )}
+
+      {/* Cell detail panel — slides in from left on click */}
+      {clickedCell && forecast.data && (
+        <CellDetailPanel
+          cell={clickedCell}
+          currentAqi={activePollution?.values[clickedCell.grid_id]}
+          snapshots={forecast.data.snapshots}
+          offsetHours={offsetHours}
+          onClose={() => setClickedCell(null)}
         />
       )}
 
