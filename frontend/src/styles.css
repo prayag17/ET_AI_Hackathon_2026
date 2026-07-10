@@ -200,6 +200,8 @@ body {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
 }
 
+<<<<<<< HEAD
+=======
 /* ── Time Slider ──────────────────────────────────────────────────────────── */
 /*
  * Cross-browser range input with a filled left-track using a CSS custom
@@ -274,6 +276,7 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
 @layer base {
   * {
     @apply border-border outline-ring/50;
