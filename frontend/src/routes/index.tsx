@@ -5,9 +5,12 @@ import { LoaderCircle, MapPinned } from 'lucide-react'
 import type { FeatureCollection } from 'geojson'
 import { AQI_STOPS, GridMap, aqiColor } from '@/components/grid-map'
 import type { GridCell } from '@/components/grid-map'
+<<<<<<< HEAD
+=======
 import { TimeSlider } from '@/components/time-slider'
 import { AqiLegend } from '@/components/aqi-legend'
 import { CellDetailPanel } from '@/components/cell-detail-panel'
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
 
 function aqiLabel(aqi: number): string {
   let label = AQI_STOPS[0].label
@@ -25,8 +28,11 @@ async function fetchGeoJson(path: string): Promise<FeatureCollection> {
 
 function Home() {
   const [hovered, setHovered] = useState<GridCell | null>(null)
+<<<<<<< HEAD
+=======
   const [offsetHours, setOffsetHours] = useState(0)
   const [clickedCell, setClickedCell] = useState<GridCell | null>(null)
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
 
   const grid = useQuery({
     queryKey: ['grid'],
@@ -50,6 +56,8 @@ function Home() {
     },
   })
 
+<<<<<<< HEAD
+=======
   // Forecast: all 73 hourly snapshots (T+0 … T+72)
   const forecast = useQuery({
     queryKey: ['forecast'],
@@ -81,6 +89,7 @@ function Home() {
           }
         : pollution.data
 
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
   return (
     <div className="dark relative h-dvh w-full overflow-hidden bg-background text-foreground">
       {grid.data && boundary.data && pollution.data && (
@@ -88,6 +97,9 @@ function Home() {
           grid={grid.data}
           boundary={boundary.data}
           onHoverCell={setHovered}
+<<<<<<< HEAD
+          pollutionData={pollution.data}
+=======
           onClickCell={setClickedCell}
           pollutionData={activePollution}
         />
@@ -101,6 +113,7 @@ function Home() {
           snapshots={forecast.data.snapshots}
           offsetHours={offsetHours}
           onClose={() => setClickedCell(null)}
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
         />
       )}
 
@@ -169,7 +182,11 @@ function Home() {
                 </span>
               </div>
               {(() => {
+<<<<<<< HEAD
+                const aqi = pollution.data?.values[hovered.grid_id]
+=======
                 const aqi = activePollution?.values[hovered.grid_id]
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
                 if (aqi === undefined) return null
                 return (
                   <div className="mt-3 flex items-center gap-2">
@@ -211,6 +228,8 @@ function Home() {
           )}
         </div>
       </aside>
+<<<<<<< HEAD
+=======
       {/* AQI Legend — right side, vertically centred */}
       <div className="pointer-events-none absolute right-4 top-1/2 z-10 -translate-y-1/2">
         <div className="pointer-events-auto">
@@ -229,6 +248,7 @@ function Home() {
           />
         </div>
       </div>
+>>>>>>> a0efdcb0befa519b9ca28e08b7bfa8445c20a3b0
     </div>
   )
 }
