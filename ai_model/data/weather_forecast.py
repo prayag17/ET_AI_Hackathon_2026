@@ -20,7 +20,7 @@ def fetch_weather(lat, lon, start=None, end=None, forecast=False):
     return df
 
 os.makedirs("features", exist_ok=True)
-points = [(28.63, 77.22), (28.70, 77.10), (28.55, 77.25)]  # add your sensor/grid points
+points = [(23.03, 72.58)]  # Ahmedabad center
 
 # history → training
 hist = pd.concat([fetch_weather(la, lo, start="2023-01-01", end="2024-12-31")

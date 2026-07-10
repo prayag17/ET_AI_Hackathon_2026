@@ -163,7 +163,17 @@ def demo_readings(sensors):
                        usecols=["City", "Datetime", "AQI"],
                        parse_dates=["Datetime"])
     city = city[(city["City"] == "Ahmedabad") & city["AQI"].notna()]
-    latest = city.sort_values("Datetime").iloc[-1]
+    
+    # --- CONFIGURATION FLAG ---
+    # Set this to False to use the latest real AQI data (which might be low/moderate).
+    # Set this to True to force the snapshot to a historical Severe-AQI winter date.
+    USE_SEVERE_DEMO_DATE = True
+    
+    if USE_SEVERE_DEMO_DATE:
+        winter_data = city[(city["Datetime"] >= "2019-11-01") & (city["Datetime"] < "2019-12-01")]
+        latest = winter_data.sort_values("AQI").iloc[-1]
+    else:
+        latest = city.sort_values("Datetime").iloc[-1]
 
     readings = sensors.copy()
     readings["datetime"] = latest["Datetime"]

@@ -103,7 +103,7 @@ def generate_fallback_recommendations(events):
         fallback_recs.append({
             "cell_id": ev["cell_id"],
             "action": primary_measure,
-            "grap_stage": rec["grap_stage"],
+            "grap_stage": rec["stage_name"],
             "start_by": f"Within {ev['lead_time_hours']} hours",
             "reason": f"AQI predicted to cross into {ev['category']} threshold (Peak: {ev['peak_aqi']}).",
             "priority": priority,
