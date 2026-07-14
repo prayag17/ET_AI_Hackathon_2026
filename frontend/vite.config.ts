@@ -13,6 +13,7 @@ const config = defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        ws: true, // proxy the /maps/ws live-update WebSocket too
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

@@ -19,14 +19,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import StarBorder from '@/components/StarBorder'
-import ShinyText from '@/components/ShinyText'
 import SpotlightCard from '@/components/SpotlightCard'
-import ClickSpark from '@/components/ClickSpark'
 import CountUp from '@/components/CountUp'
 import Strands from '@/components/Strands'
 import GlassSurface from '@/components/GlassSurface'
@@ -80,33 +77,26 @@ export function AiAssistant() {
           whileHover={reducedMotion ? undefined : { scale: 1.08 }}
           whileTap={reducedMotion ? undefined : { scale: 0.92 }}
         >
-          <ClickSpark
-            sparkColor="var(--color-primary)"
-            sparkCount={10}
-            sparkRadius={22}
-            duration={500}
-          >
-            <PopoverTrigger asChild>
-              <StarBorder
-                color="var(--color-primary)"
-                speed="4s"
-                className="size-full shadow-lg"
-                aria-label="Open AI advisory assistant"
+          <PopoverTrigger asChild>
+            <StarBorder
+              color="var(--color-primary)"
+              speed="4s"
+              className="size-full shadow-lg"
+              aria-label="Open AI advisory assistant"
+            >
+              <GlassSurface
+                width="100%"
+                height="100%"
+                borderRadius={28}
+                brightness={65}
+                opacity={0.5}
+                blur={8}
+                className="text-primary"
               >
-                <GlassSurface
-                  width="100%"
-                  height="100%"
-                  borderRadius={28}
-                  brightness={65}
-                  opacity={0.5}
-                  blur={8}
-                  className="text-primary"
-                >
-                  <Sparkles className="size-5" />
-                </GlassSurface>
-              </StarBorder>
-            </PopoverTrigger>
-          </ClickSpark>
+                <Sparkles className="size-5" />
+              </GlassSurface>
+            </StarBorder>
+          </PopoverTrigger>
         </motion.div>
 
         <AnimatePresence>
@@ -141,42 +131,36 @@ export function AiAssistant() {
             backgroundOpacity={0.55}
             brightness={55}
             blur={10}
-            className="absolute inset-0"
+            className="pointer-events-none absolute inset-0"
           />
 
-          {/* Actual content sits above both background layers, on solid
-              cards where it matters, so readability never depends on
-              exactly what's refracting underneath. */}
+          {/* Actual content sits above the glass layer, on solid cards
+              where it matters, so readability never depends on exactly
+              what's refracting underneath. */}
           <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 border-b border-border/50 p-4">
-              <motion.span
-                animate={
-                  reducedMotion ? undefined : { rotate: [0, -12, 12, 0] }
-                }
-                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <Wind className="size-5 text-primary" />
-              </motion.span>
+            <div className="flex items-center gap-2.5 p-4">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
+                <Wind className="size-4.5 text-primary" />
+              </div>
               <div className="flex min-w-0 flex-col">
                 <span className="text-base font-medium leading-tight">
-                  {reducedMotion ? (
-                    'AI Advisory Assistant'
-                  ) : (
-                    <ShinyText
-                      text="AI Advisory Assistant"
-                      speed={3}
-                      color="var(--color-foreground)"
-                      shineColor="var(--color-primary)"
-                    />
-                  )}
+                  AI Advisory Assistant
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
                   GRAP-Ahmedabad · live 72h forecast
                 </span>
               </div>
             </div>
+            {/* Gradient hairline — quieter than a full border, still separates */}
+            <div
+              aria-hidden="true"
+              className="h-px bg-gradient-to-r from-primary/50 via-border to-transparent"
+            />
 
-            <ScrollArea className="min-h-0 flex-1">
+            {/* Native overflow scrolling — Radix ScrollArea never resolved
+                a height inside this popover's flex chain, leaving the list
+                unscrollable. A plain overflow div has no such dependency. */}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <div className="flex flex-col gap-3 p-4">
                 <AnimatePresence mode="wait">
                   {advisory.isPending && (
@@ -245,18 +229,26 @@ export function AiAssistant() {
                               : { opacity: 0, y: 24, scale: 0.94 }
                           }
                           animate={{ opacity: 1, y: 0, scale: 1 }}
-                          whileHover={reducedMotion ? undefined : { scale: 1.02 }}
                           transition={{
                             type: 'spring',
                             stiffness: 300,
                             damping: 24,
-                            delay: reducedMotion ? 0 : i * 0.08,
+                            // Stagger only the first few — with hundreds of
+                            // advisories an unbounded i*0.08 delays the tail
+                            // by whole minutes
+                            delay: reducedMotion ? 0 : Math.min(i, 6) * 0.08,
                           }}
                         >
                           <SpotlightCard
                             className="border-2"
                             style={{
                               borderColor: rec.stage_color ?? undefined,
+                              // Faint wash of the stage color so the card
+                              // reads as one tinted surface, not a bare
+                              // box with a colored outline
+                              backgroundImage: rec.stage_color
+                                ? `linear-gradient(140deg, color-mix(in oklab, ${rec.stage_color} 9%, transparent), transparent 55%)`
+                                : undefined,
                             }}
                           >
                             <RecommendationCard rec={rec} />
@@ -267,7 +259,7 @@ export function AiAssistant() {
                   )}
                 </AnimatePresence>
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
       </PopoverContent>

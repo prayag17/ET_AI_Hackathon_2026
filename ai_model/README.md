@@ -38,11 +38,12 @@ city_hour.csv + sensor_locations.csv + weather_history.csv + grid geojson
 
 ### Input features
 
-The model expects the following columns in `data/features_ready.csv`:
+The model expects the following columns in `data/features_ready.csv`
+(see `FEATURE_COLUMNS` in `train.py`):
 
-- `pm25`
-- `no2`
-- `co`
+- `wind_speed`
+- `temp`
+- `humidity`
 - `traffic_index`
 - `hour`
 - `dow`
@@ -143,6 +144,25 @@ python scorecard.py
 ```
 
 This prints RMSE, MAE, skill score, and feature importance summaries.
+
+### 7. Optional: wind ventilation signal (issue #40)
+
+```powershell
+python wind_signal.py
+```
+
+`wind_signal.py` derives a wind-based dispersion signal from existing columns
+(`ventilation_index` = diurnal/temperature mixing-height proxy × wind speed,
+plus a `poor_ventilation` flag) and A/B-trains the full `train.py` config grid
+with and without it, printing an RMSE comparison per horizon.
+
+**Recorded result (2026-07-14):** all deltas were within noise (<0.1% of a
+~15.5 baseline RMSE), so the signal is **not** part of `train.py`'s
+`FEATURE_COLUMNS` — the issue allows dropping it when it doesn't help. The
+module stays available for re-testing if richer weather data (real wind
+direction, observed mixing height) is ever added. A directional
+spread-to-neighbours feature isn't computable from `features_ready.csv` at
+all: its synthetic `cell_000`-style ids carry no coordinates.
 
 ## Optional Demo Export
 

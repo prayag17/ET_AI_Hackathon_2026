@@ -52,13 +52,21 @@ def print_scorecard(df):
         if model_col in df.columns:
             model_rmse_val = rmse(actual, df[model_col])
             skill          = skill_score(model_rmse_val, best_baseline)
-            model_str      = f"{model_rmse_val:.2f}"
             skill_str      = f"{skill:+.3f}" if skill is not None else "—"
 
-            if skill is not None and skill > 0:
-                result = "✅ beating baseline"
+            if model_rmse_val is None:
+                # Predictions merged but share no rows with the baselines —
+                # e.g. model_predictions.csv uses different cell ids or a
+                # different date range than with_baselines.csv
+                model_str    = "no overlap"
+                result       = "⚠️ predictions don't overlap baseline rows"
+                all_positive = False
+            elif skill is not None and skill > 0:
+                model_str = f"{model_rmse_val:.2f}"
+                result    = "✅ beating baseline"
             else:
-                result = "❌ not beating baseline"
+                model_str    = f"{model_rmse_val:.2f}"
+                result       = "❌ not beating baseline"
                 all_positive = False
         else:
             model_rmse_val = None
@@ -93,18 +101,21 @@ def print_mae_breakdown(df):
 def print_feature_importance():
     try:
         import joblib
-        from train import FEATURE_COLUMNS
 
         print("TOP 10 FEATURES  (what the model relies on most)")
         print("-" * 50)
         for h in [24, 48, 72]:
             model = joblib.load(f"models/model_{h}h.pkl")
-            importance = dict(zip(FEATURE_COLUMNS, model.feature_importances_))
+            # Feature names come from the trained booster itself —
+            # importing them from train.py would re-run the whole training
+            # pipeline, since that script is all top-level code
+            names = model.booster_.feature_name()
+            importance = dict(zip(names, model.feature_importances_))
             top10 = sorted(importance.items(), key=lambda x: x[1], reverse=True)[:5]
             print(f"  {h}h: " + ", ".join(f"{k}({v:.0f})" for k, v in top10))
         print()
     except FileNotFoundError:
-        pass   
+        pass
 
 if __name__ == "__main__":
     # Step 1: load baseline file

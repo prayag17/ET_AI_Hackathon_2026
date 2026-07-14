@@ -115,7 +115,7 @@ export function ForecastTimeline({
   const baseDate = baseDatetime ? new Date(baseDatetime) : null
 
   return (
-    <div className="flex items-center gap-4 border-t bg-background px-4 py-3">
+    <div className="relative flex items-center gap-4 border-t bg-background px-4 py-3 shadow-[0_-12px_24px_-16px_rgb(0_0_0/0.35)]">
       {/* Transport */}
       <Tooltip>
         <TooltipTrigger asChild>

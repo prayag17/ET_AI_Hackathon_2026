@@ -173,7 +173,9 @@ print("=" * 65)
 print("TUNING SUMMARY")
 print("=" * 65)
 for h in [24, 48, 72]:
-    best_row = log_df[(log_df["horizon"] == h) & (log_df["is_best"])].iloc[0]
+    # Lowest RMSE for this horizon — "is_best" marks every improvement along
+    # the way, so its first row is just the first config tried, not the winner
+    best_row = log_df[log_df["horizon"] == h].sort_values("test_rmse").iloc[0]
     print(f"  {h}h  best config={best_row['config']:<10} "
           f"leaves={int(best_row['num_leaves']):<5} "
           f"lr={best_row['learning_rate']:<6} "

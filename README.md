@@ -39,19 +39,22 @@ The system predicts AQI for each of 502 grid cells across Ahmedabad at 24h, 48h,
 ┌─────────────────────────────────────────────────────┐
 │                  Backend (FastAPI)                    │
 │                                                     │
-│  /maps/getMap       → grid_pollution_demo.csv        │
-│  /maps/getPollution → IDW heatmap GeoJSON            │
-│  /maps/getForecast  → forecast_demo.json             │
+│  /maps/getMap       → grid GeoJSON (502 cells)       │
+│  /maps/getBoundary  → city boundary GeoJSON          │
+│  /maps/getPollution → grid_pollution_demo.csv        │
+│  /maps/getForecast  → 72 h hourly snapshots          │
 │  /maps/getAdvisory  → GRAP advisories (advisor.py)   │
+│  /maps/ws           → live-update WebSocket          │
 └─────────────┬───────────────────────────────────────┘
               │
               ▼
 ┌─────────────────────────────────────────────────────┐
 │              Frontend (React + Vite)                 │
 │                                                     │
-│  MapLibre GL heatmap · Time slider (0–72h)           │
-│  Cell detail panel · Forecast chart (Recharts)       │
-│  GRAP advisory panel · AQI legend                    │
+│  MapLibre GL heatmap · AQI particle regions          │
+│  Time slider (0–72h) · Cell inspector (Recharts)     │
+│  AI advisory assistant · AQI legend                  │
+│  Live auto-refresh over WebSocket                    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -66,6 +69,7 @@ ET_AI_Hackathon_2026/
 │   ├── baseline.py                  # Step 2: Add persistence/seasonal baselines
 │   ├── train.py                     # Step 3: Train LightGBM (24h, 48h, 72h)
 │   ├── scorecard.py                 # Step 4: Evaluate model vs baselines
+│   ├── wind_signal.py               # Optional wind ventilation signal + A/B eval (issue #40)
 │   ├── interpolation.py             # IDW spatial interpolation (sensors → grid)
 │   ├── grap.py                      # GRAP stage definitions & mapping
 │   ├── data/
@@ -84,18 +88,21 @@ ET_AI_Hackathon_2026/
 ├── backend/                         # FastAPI server
 │   ├── main.py                      # App entry point, router registration
 │   ├── routers/
-│   │   ├── maps.py                  # /maps/getMap, /maps/getPollution
+│   │   ├── maps.py                  # /maps/getMap, /maps/getBoundary, /maps/getPollution
 │   │   ├── forecast.py              # /maps/getForecast
-│   │   └── advisory.py              # /maps/getAdvisory
+│   │   ├── advisory.py              # /maps/getAdvisory
+│   │   └── live.py                  # /maps/ws live-update WebSocket + file watcher
 │   ├── static/
 │   │   └── ahmedabad_1km_grid.geojson
 │   └── forecast_demo.json           # Pre-computed 72h forecast (from extract_forecast.py)
 │
-├── frontend/                        # React + Vite + TanStack Router
+├── frontend/                        # React + Vite + TanStack Router (see frontend/README.md)
 │   └── src/
-│       ├── components/              # GridMap, TimeSlider, CellDetailPanel, etc.
+│       ├── components/              # GridMap, AqiParticleLayer, ForecastTimeline,
+│       │                            # InspectorSidebar, AiAssistant, etc.
+│       ├── hooks/                   # use-live-updates.ts (WebSocket auto-refresh)
 │       ├── routes/                  # index.tsx (main dashboard page)
-│       └── lib/                     # Utilities (aqi.ts, utils.ts)
+│       └── lib/                     # api.ts (typed fetchers), aqi.ts, utils.ts
 │
 ├── extract_forecast.py              # Slices model_predictions.csv → forecast_demo.json
 ├── INTEGRATION_GUIDE.md             # Backend integration reference
@@ -113,7 +120,7 @@ ET_AI_Hackathon_2026/
 | **Python** | ≥ 3.12 | AI model scripts & backend |
 | **uv** | latest | Python dependency management (backend) |
 | **Node.js** | ≥ 18 | Frontend build & dev server |
-| **npm** | ≥ 9 | Frontend package management |
+| **pnpm** | ≥ 9 | Frontend package management |
 
 ---
 
@@ -210,8 +217,8 @@ Computes RMSE, MAE, and skill scores for each horizon. Confirms the model beats 
 
 ### Feature Columns Used
 
-The model uses 21 features:
-- **Pollutants:** `pm25`, `no2`, `co`
+The model uses 21 features (see `FEATURE_COLUMNS` in `ai_model/train.py`):
+- **Weather:** `wind_speed`, `temp`, `humidity`
 - **Traffic:** `traffic_index`
 - **Temporal:** `hour`, `dow`, `hour_sin`, `hour_cos`, `dow_sin`, `dow_cos`, `month`
 - **Calendar:** `is_public_holiday`, `is_weekend`, `is_crop_burning_season`, `is_diwali_window`
@@ -226,11 +233,14 @@ The model uses 21 features:
 
 ```bash
 cd backend
-uv sync                # Install Python dependencies from pyproject.toml
+uv sync --all-groups   # Install deps + the "pipeline" group (lightgbm, sklearn, …)
 ```
 
+> Plain `uv sync` installs only the API deps; `--all-groups` also pulls the
+> packages the `ai_model/` pipeline scripts need when run through this venv.
+
 The backend depends on:
-- `fastapi[standard]` — API framework + uvicorn server
+- `fastapi[standard]` — API framework + uvicorn server (incl. WebSocket support)
 - `pandas` — data loading for advisory endpoint
 - `openai` — OpenRouter client for LLM advisory (optional)
 
@@ -238,7 +248,7 @@ The backend depends on:
 
 ```bash
 cd frontend
-npm install            # Install Node dependencies
+pnpm install           # Install Node dependencies
 ```
 
 The frontend uses:
@@ -252,7 +262,7 @@ The frontend uses:
 
 ```bash
 cd frontend
-npm run build          # Outputs to frontend/dist/
+pnpm build             # Outputs to frontend/dist/
 ```
 
 ---
@@ -272,7 +282,7 @@ uv run fastapi dev main.py
 **Terminal 2 — Frontend:**
 ```bash
 cd frontend
-npm run dev
+pnpm dev
 ```
 > Opens at `http://localhost:3000`
 
@@ -280,10 +290,32 @@ npm run dev
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/maps/getMap` | GET | GeoJSON grid with current AQI values per cell |
-| `/maps/getPollution` | GET | IDW-interpolated pollution heatmap |
-| `/maps/getForecast` | GET | 72-hour hourly forecast (from LightGBM predictions) |
+| `/maps/getMap` | GET | GeoJSON 1 km grid (502 cells, centroids + row/col) |
+| `/maps/getBoundary` | GET | Ahmedabad city boundary GeoJSON |
+| `/maps/getPollution` | GET | Current T=0 AQI snapshot per cell |
+| `/maps/getForecast` | GET | 73 hourly snapshots (T+0 … T+72) |
 | `/maps/getAdvisory` | GET | GRAP action plan recommendations |
+| `/maps/ws` | WebSocket | Live-update channel — broadcasts `{"type": "data_updated"}` when the pollution data changes on disk |
+
+### Live auto-updates
+
+The backend keeps the data fresh end to end, no manual pipeline runs needed:
+
+1. **Hourly refresh** — a lifespan task re-runs `live_inference.py` every
+   hour (Open-Meteo data is hourly), rewriting
+   `ai_model/data/grid_pollution_demo.csv` and `backend/forecast_demo.json`
+   with the latest readings + LightGBM forecasts. On startup it only runs if
+   the current snapshot is older than an hour, so dev-server reloads don't
+   hammer the API; a failed run keeps the previous snapshot and retries in
+   10 minutes. Tune with the `LIVE_REFRESH_SECONDS` env var (`0` disables).
+2. **Push to dashboards** — a watcher notices the rewritten CSV and
+   broadcasts over `/maps/ws`; the frontend's `useLiveUpdates()` hook then
+   refetches the pollution, forecast, and advisory queries in place — no
+   reload. The sidebar header shows a **Live / Offline** dot with the real
+   connection state.
+
+The same broadcast fires if a teammate runs `live_inference.py` or
+`interpolation.py` by hand — the watcher only cares that the file changed.
 
 ### Environment Variables (optional)
 
@@ -339,6 +371,7 @@ The LLM advisor (`advisor.py`) uses the Gemma 4 model via OpenRouter to generate
 | `baseline.py` | `ai_model/` | Add naive baselines for comparison | After `build_feature_store.py` |
 | `train.py` | `ai_model/` | Train LightGBM models | After `baseline.py` or to retrain |
 | `scorecard.py` | `ai_model/` | Print RMSE/MAE/skill scores | After `train.py` |
+| `wind_signal.py` | `ai_model/` | A/B-evaluate the optional wind ventilation signal (issue #40) | When re-testing the signal on new data |
 | `interpolation.py` | `ai_model/` | IDW sensors → 502-cell grid snapshot | To update heatmap base data |
 | `extract_forecast.py` | root | Slice predictions → forecast JSON | After `train.py` or `interpolation.py` |
 | `grap.py` | `ai_model/` | GRAP stage definitions & mapping | Library, no need to run directly |

@@ -2,7 +2,7 @@
  * CellDetail — the pinned-cell inspector content, embedded in the sidebar.
  *
  * Shows:
- *  • Cell ID, coordinates, area metadata
+ *  • Cell ID and row/col position
  *  • Current AQI badge (colour-coded to the CPCB band)
  *  • 72-hour forecast line chart via the shadcn Chart wrapper (Recharts)
  *    – Y-axis bands match the CPCB AQI colour scale (reference lines)
@@ -31,12 +31,6 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart'
 import type { ChartConfig } from '@/components/ui/chart'
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-} from '@/components/ui/item'
 import { Separator } from '@/components/ui/separator'
 import CountUp from '@/components/CountUp'
 
@@ -164,36 +158,6 @@ export function CellDetail({
       ) : (
         <span className="text-sm text-muted-foreground">No data</span>
       )}
-
-      {/* Metadata */}
-      <ItemGroup className="gap-0">
-        <Item size="xs" className="px-0 py-1">
-          <ItemContent>
-            <ItemDescription className="text-xs">Area</ItemDescription>
-          </ItemContent>
-          <span className="font-mono text-xs">
-            {cell.area_km2.toFixed(2)} km²
-          </span>
-        </Item>
-        <Item size="xs" className="px-0 py-1">
-          <ItemContent>
-            <ItemDescription className="text-xs">
-              City coverage
-            </ItemDescription>
-          </ItemContent>
-          <span className="font-mono text-xs">
-            {(cell.coverage * 100).toFixed(0)}%
-          </span>
-        </Item>
-        <Item size="xs" className="px-0 py-1">
-          <ItemContent>
-            <ItemDescription className="text-xs">Centroid</ItemDescription>
-          </ItemContent>
-          <span className="font-mono text-xs">
-            {cell.centroid_lat.toFixed(4)}, {cell.centroid_lon.toFixed(4)}
-          </span>
-        </Item>
-      </ItemGroup>
 
       <Separator />
 

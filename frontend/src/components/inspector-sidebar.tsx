@@ -6,15 +6,13 @@
  */
 
 import { MapPinned, MousePointerClick, X } from 'lucide-react'
-import { useReducedMotion } from 'motion/react'
 import { AqiLegend } from '@/components/aqi-legend'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { CellDetail } from '@/components/cell-detail-panel'
 import type { ForecastSnapshot } from '@/components/cell-detail-panel'
 import type { GridCell } from '@/components/grid-map'
 import { aqiColor, aqiLabel } from '@/lib/aqi'
-import { Badge } from '@/components/ui/badge'
-import ShinyText from '@/components/ShinyText'
+import { cn } from '@/lib/utils'
 import CountUp from '@/components/CountUp'
 import {
   Empty,
@@ -38,8 +36,8 @@ import {
 interface InspectorSidebarProps {
   /** Timestamp of the snapshot currently shown on the map */
   datetime?: string
-  /** Total number of grid cells */
-  cellCount?: number
+  /** Whether the live-update WebSocket is currently connected */
+  liveConnected?: boolean
   /** Cell currently under the cursor */
   hovered: GridCell | null
   /** AQI of the hovered cell at the current slider position */
@@ -60,7 +58,7 @@ interface InspectorSidebarProps {
 
 export function InspectorSidebar({
   datetime,
-  cellCount,
+  liveConnected = false,
   hovered,
   hoveredAqi,
   selected,
@@ -70,8 +68,6 @@ export function InspectorSidebar({
   cityAqi,
   onClearSelection,
 }: InspectorSidebarProps) {
-  const reducedMotion = useReducedMotion()
-
   return (
     <Sidebar side="right" collapsible="offcanvas">
       <SidebarHeader>
@@ -81,16 +77,7 @@ export function InspectorSidebar({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold leading-none tracking-tight">
-              {reducedMotion ? (
-                'Ahmedabad'
-              ) : (
-                <ShinyText
-                  text="Ahmedabad"
-                  speed={4}
-                  color="var(--color-foreground)"
-                  shineColor="var(--color-primary)"
-                />
-              )}
+              Ahmedabad
             </p>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {datetime
@@ -98,11 +85,26 @@ export function InspectorSidebar({
                 : '1 km² analysis grid'}
             </p>
           </div>
-          {cellCount !== undefined && (
-            <Badge variant="outline" className="shrink-0 font-mono">
-              {cellCount} cells
-            </Badge>
-          )}
+          {/* Live-channel status — real state from the /maps/ws socket */}
+          <span
+            className="flex shrink-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground"
+            title={
+              liveConnected
+                ? 'Live updates connected — the dashboard refreshes itself'
+                : 'Live updates disconnected — data may be stale'
+            }
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                'size-1.5 rounded-full',
+                liveConnected
+                  ? 'bg-emerald-500 shadow-[0_0_6px_1px] shadow-emerald-500/60'
+                  : 'bg-muted-foreground/40',
+              )}
+            />
+            {liveConnected ? 'Live' : 'Offline'}
+          </span>
         </div>
       </SidebarHeader>
 

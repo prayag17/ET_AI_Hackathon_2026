@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Spinner } from '@/components/ui/spinner'
 import { getBoundary, getForecast, getGrid, getPollution } from '@/lib/api'
+import { useLiveUpdates } from '@/hooks/use-live-updates'
 
 // Code-split: keeps the `motion` + react-bits flourish out of the main
 // bundle until the map itself has rendered.
@@ -24,6 +25,10 @@ function Home() {
   const [hovered, setHovered] = useState<GridCell | null>(null)
   const [offsetHours, setOffsetHours] = useState(0)
   const [clickedCell, setClickedCell] = useState<GridCell | null>(null)
+
+  // Refetch pollution/forecast/advisory automatically when the backend
+  // announces new data over the /maps/ws live channel
+  const liveConnected = useLiveUpdates()
 
   const grid = useQuery({
     queryKey: ['grid'],
@@ -149,7 +154,7 @@ function Home() {
 
       <InspectorSidebar
         datetime={activePollution?.datetime}
-        cellCount={grid.data?.features.length}
+        liveConnected={liveConnected}
         hovered={hovered}
         hoveredAqi={hoveredAqi}
         selected={clickedCell}
