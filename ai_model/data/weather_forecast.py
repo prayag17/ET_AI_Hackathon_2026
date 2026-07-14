@@ -23,7 +23,7 @@ os.makedirs("features", exist_ok=True)
 points = [(23.03, 72.58)]  # Ahmedabad center
 
 # history → training
-hist = pd.concat([fetch_weather(la, lo, start="2024-01-01", end="2025-12-31")
+hist = pd.concat([fetch_weather(la, lo, start="2023-01-01", end="2024-12-31")
                   for la, lo in points], ignore_index=True)
 hist.to_csv("features/weather_history.csv", index=False)
 
