@@ -16,7 +16,7 @@ sys.path.insert(0, AI_MODEL_DIR)
 try:
     from interpolation import idw
 except ImportError:
-    print("❌ Could not import idw from ai_model/interpolation.py. Make sure you are running from the project root.")
+    print("Could not import idw from ai_model/interpolation.py. Make sure you are running from the project root.")
     sys.exit(1)
 
 GRID_PATH = os.path.join(BASE_DIR, "backend", "static", "ahmedabad_1km_grid.geojson")
@@ -50,7 +50,7 @@ def get_live_data():
         w_response.raise_for_status()
         w_res = w_response.json()
     except Exception as e:
-        print(f"❌ Failed to fetch live data: {e}")
+        print(f"Failed to fetch live data: {e}")
         sys.exit(1)
     
     df_aqi = pd.DataFrame(aqi_res['hourly'])
@@ -164,7 +164,7 @@ def build_grid_features(live):
     calibration_multiplier = 1.2 if live["aqi_roll_mean_24h"] > 150 else 1.0
     
     if calibration_multiplier > 1.0:
-        print("⚠️ High Pollution Detected! Applying 1.2x Trend Multiplier to offset historical bounds.")
+        print("High Pollution Detected! Applying 1.2x Trend Multiplier to offset historical bounds.")
         
     # Save the base map data for /maps/getPollution
     pollution_csv_path = os.path.join(AI_MODEL_DIR, "data", "grid_pollution_demo.csv")
@@ -176,12 +176,12 @@ def build_grid_features(live):
         "value": np.round(grid_aqi, 1)
     })
     csv_df.to_csv(pollution_csv_path, index=False)
-    print(f"📂 Updated base map: {pollution_csv_path}")
+    print(f"Updated base map: {pollution_csv_path}")
         
     return df, ts, calibration_multiplier
 
 def run_inference():
-    print(f"\n--- 🚀 Starting Live Inference Pipeline ---")
+    print(f"\nStarting Live Inference Pipeline")
     live = get_live_data()
     df, current_ts, multiplier = build_grid_features(live)
     
@@ -197,11 +197,11 @@ def run_inference():
     X = df[FEATURE_COLUMNS]
     forecast = {}
     
-    print("🧠 Running LightGBM Models for 24h, 48h, and 72h horizons...")
+    print("Running LightGBM Models for 24h, 48h, and 72h horizons")
     for h in [24, 48, 72]:
         model_path = os.path.join(MODELS_DIR, f"model_{h}h.pkl")
         if not os.path.exists(model_path):
-            print(f"❌ Model not found: {model_path}. You must run ai_model/train.py first!")
+            print(f"Model not found: {model_path}. You must run ai_model/train.py first!")
             return
             
         model = joblib.load(model_path)
@@ -230,9 +230,9 @@ def run_inference():
     with open(FORECAST_OUTPUT, "w") as f:
         json.dump(forecast, f)
         
-    print(f"✅ SUCCESS! Live forecast generated for {len(df)} grid cells.")
-    print(f"📂 Updated file: {FORECAST_OUTPUT}")
-    print("\n👉 To see the live predictions in action, just run:")
+    print(f"SUCCESS! Live forecast generated for {len(df)} grid cells.")
+    print(f"Updated file: {FORECAST_OUTPUT}")
+    print("\nTo see the live predictions in action, just run:")
     print("   Terminal 1: cd backend && uv run fastapi dev main.py")
     print("   Terminal 2: cd frontend && npm run dev\n")
 
