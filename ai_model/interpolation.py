@@ -166,22 +166,40 @@ def demo_readings(sensors):
     
     # --- CONFIGURATION FLAG ---
     # Set this to False to use the latest real AQI data (which might be low/moderate).
-    # Set this to True to force the snapshot to a historical Severe-AQI winter date.
-    USE_SEVERE_DEMO_DATE = False
+    # Set this to True to force the snapshot to a multiple gradients of AQI.
+    USE_SEVERE_DEMO_DATE = True
     
     if USE_SEVERE_DEMO_DATE:
-        winter_data = city[(city["Datetime"] >= "2019-11-01") & (city["Datetime"] < "2019-12-01")]
-        latest = winter_data.sort_values("AQI").iloc[-1]
+        # For demo purposes, to show all colors on the map scale, we assign synthetic values
+        # spanning the entire spectrum (Good to Severe) across the 10 sensors.
+        readings = sensors.copy()
+        readings["datetime"] = "2019-11-18 14:00:00"
+        
+        # A curated list of AQIs representing every category in the scale.
+        synthetic_spread = [
+            45,   # Good (Green)
+            85,   # Satisfactory (Light Green)
+            150,  # Moderate (Yellow)
+            250,  # Poor (Orange)
+            350,  # Very Poor (Red)
+            450,  # Severe (Dark Red)
+            550,  # Severe+ (Purple)
+            110,  # Moderate
+            320,  # Very Poor
+            420   # Severe
+        ]
+        # Pad or truncate just in case the number of sensors changes
+        readings["value"] = [synthetic_spread[i % len(synthetic_spread)] for i in range(len(readings))]
+        return readings
     else:
         latest = city.sort_values("Datetime").iloc[-1]
-
-    readings = sensors.copy()
-    readings["datetime"] = latest["Datetime"]
-    readings["value"] = [
-        round(latest["AQI"] * DEMO_STATION_FACTOR[sid], 1)
-        for sid in readings["station_id"]
-    ]
-    return readings
+        readings = sensors.copy()
+        readings["datetime"] = latest["Datetime"]
+        readings["value"] = [
+            round(latest["AQI"] * DEMO_STATION_FACTOR[sid], 1)
+            for sid in readings["station_id"]
+        ]
+        return readings
 
 
 def plot_map(cells, readings, out_path, value_col="value"):
