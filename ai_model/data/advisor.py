@@ -112,6 +112,7 @@ def generate_fallback_recommendations(events):
             "priority": priority,
             "confidence": ev["confidence"],
             "grap_source": rec["source"],
+            "stage_color": rec["color"],
         })
     return fallback_recs
 
@@ -155,6 +156,7 @@ def recommend(events):
             s = stage_source.get(r.get("grap_stage"))
             if s:
                 r["grap_source"] = get_recommendation(s.aqi_min, max_actions=1)["source"]
+                r["stage_color"] = s.color
         return recs
 
     except Exception as e:

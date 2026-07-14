@@ -1,4 +1,13 @@
+from pathlib import Path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# Load OPENROUTER_API_KEY (and any other secrets) from backend/.env before
+# the routers below are imported, since advisory.py reads it from the
+# process environment.
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 from backend.routers import maps
 from backend.routers import forecast
 from backend.routers import advisory

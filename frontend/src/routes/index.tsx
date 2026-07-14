@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import type { FeatureCollection } from 'geojson'
 import { GridMap } from '@/components/grid-map'
 import type { GridCell } from '@/components/grid-map'
 import { ForecastTimeline } from '@/components/forecast-timeline'
@@ -9,14 +8,17 @@ import { InspectorSidebar } from '@/components/inspector-sidebar'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Spinner } from '@/components/ui/spinner'
+import { getBoundary, getForecast, getGrid, getPollution } from '@/lib/api'
+
+// Code-split: keeps the `motion` + react-bits flourish out of the main
+// bundle until the map itself has rendered.
+const AiAssistant = lazy(() =>
+  import('@/components/ai-assistant/ai-assistant').then((m) => ({
+    default: m.AiAssistant,
+  })),
+)
 
 export const Route = createFileRoute('/')({ component: Home })
-
-async function fetchGeoJson(path: string): Promise<FeatureCollection> {
-  const res = await fetch(path)
-  if (!res.ok) throw new Error(`${path} responded with ${res.status}`)
-  return res.json()
-}
 
 function Home() {
   const [hovered, setHovered] = useState<GridCell | null>(null)
@@ -25,57 +27,43 @@ function Home() {
 
   const grid = useQuery({
     queryKey: ['grid'],
-    queryFn: () => fetchGeoJson('/api/maps/getMap'),
+    queryFn: getGrid,
     staleTime: Infinity,
   })
   const boundary = useQuery({
     queryKey: ['boundary'],
-    queryFn: () => fetchGeoJson('/api/maps/getBoundary'),
+    queryFn: getBoundary,
     staleTime: Infinity,
   })
   const pollution = useQuery({
     queryKey: ['pollution'],
-    queryFn: async () => {
-      const res = await fetch('/api/maps/getPollution')
-      if (!res.ok) throw new Error(`getPollution responded with ${res.status}`)
-      return res.json() as Promise<{
-        datetime: string
-        values: Record<string, number>
-      }>
-    },
+    queryFn: getPollution,
   })
 
   // Forecast: all 73 hourly snapshots (T+0 … T+72)
   const forecast = useQuery({
     queryKey: ['forecast'],
-    queryFn: async () => {
-      const res = await fetch('/api/maps/getForecast')
-      if (!res.ok) throw new Error(`getForecast responded with ${res.status}`)
-      return res.json() as Promise<{
-        base_datetime: string
-        snapshots: Array<{
-          offset_hours: number
-          base_datetime: string
-          values: Record<string, number>
-        }>
-      }>
-    },
+    queryFn: getForecast,
     staleTime: 5 * 60 * 1000, // 5 min — forecast is deterministic, no need to hammer the API
   })
 
   // The active pollution data shown on the map:
   //   • offset 0 → use the real snapshot from /getPollution (source of truth)
   //   • offset > 0 → use the corresponding forecast snapshot
-  const activePollution =
-    offsetHours === 0
-      ? pollution.data
-      : forecast.data
-        ? {
-            datetime: forecast.data.snapshots[offsetHours]?.base_datetime ?? '',
-            values: forecast.data.snapshots[offsetHours]?.values ?? {},
-          }
-        : pollution.data
-  console.log("activePollution time ", activePollution?.datetime)
+  // Memoized so hovering/selecting cells (which re-render Home but don't
+  // change the underlying data) doesn't hand GridMap a new object reference
+  // every time — that was retriggering its pollutionData effect (and
+  // reseeding the AQI particles) on every mousemove.
+  const activePollution = useMemo(() => {
+    if (offsetHours === 0) return pollution.data
+    if (forecast.data) {
+      return {
+        datetime: forecast.data.snapshots[offsetHours]?.base_datetime ?? '',
+        values: forecast.data.snapshots[offsetHours]?.values ?? {},
+      }
+    }
+    return pollution.data
+  }, [offsetHours, forecast.data, pollution.data])
   // City-mean AQI per forecast hour — drives the timeline heat-track
   const cityTrend = useMemo(() => {
     if (!forecast.data) return undefined
@@ -141,6 +129,10 @@ function Home() {
               </Alert>
             </div>
           )}
+
+          <Suspense fallback={null}>
+            <AiAssistant />
+          </Suspense>
         </div>
 
         {/* Forecast timeline dock */}

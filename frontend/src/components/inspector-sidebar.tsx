@@ -6,6 +6,7 @@
  */
 
 import { MapPinned, MousePointerClick, X } from 'lucide-react'
+import { useReducedMotion } from 'motion/react'
 import { AqiLegend } from '@/components/aqi-legend'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { CellDetail } from '@/components/cell-detail-panel'
@@ -13,6 +14,8 @@ import type { ForecastSnapshot } from '@/components/cell-detail-panel'
 import type { GridCell } from '@/components/grid-map'
 import { aqiColor, aqiLabel } from '@/lib/aqi'
 import { Badge } from '@/components/ui/badge'
+import ShinyText from '@/components/ShinyText'
+import CountUp from '@/components/CountUp'
 import {
   Empty,
   EmptyDescription,
@@ -67,6 +70,8 @@ export function InspectorSidebar({
   cityAqi,
   onClearSelection,
 }: InspectorSidebarProps) {
+  const reducedMotion = useReducedMotion()
+
   return (
     <Sidebar side="right" collapsible="offcanvas">
       <SidebarHeader>
@@ -76,7 +81,16 @@ export function InspectorSidebar({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold leading-none tracking-tight">
-              Ahmedabad
+              {reducedMotion ? (
+                'Ahmedabad'
+              ) : (
+                <ShinyText
+                  text="Ahmedabad"
+                  speed={4}
+                  color="var(--color-foreground)"
+                  shineColor="var(--color-primary)"
+                />
+              )}
             </p>
             <p className="mt-1 truncate text-xs text-muted-foreground">
               {datetime
@@ -117,7 +131,7 @@ export function InspectorSidebar({
                       aria-hidden="true"
                     />
                     <span className="font-mono text-lg font-semibold leading-none">
-                      {Math.round(hoveredAqi)}
+                      <CountUp to={Math.round(hoveredAqi)} duration={0.6} />
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {aqiLabel(hoveredAqi)}

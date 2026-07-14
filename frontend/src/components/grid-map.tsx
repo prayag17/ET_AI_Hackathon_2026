@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { ExpressionSpecification } from 'maplibre-gl'
-import type { FeatureCollection } from 'geojson'
-import { AQI_STOPS } from '@/lib/aqi'
+import type { Feature, FeatureCollection, Point } from 'geojson'
+import { useReducedMotion } from 'motion/react'
+import { AQI_STOPS, aqiColor } from '@/lib/aqi'
 import { useTheme } from '@/components/theme-provider'
 
 // OpenFreeMap basemaps — free, no API key, rebuilt weekly from fresh OSM
@@ -49,6 +50,154 @@ function applyPollution(
   if (!values || !map.getSource('grid')) return
   for (const [gridId, aqi] of Object.entries(values)) {
     map.setFeatureState({ source: 'grid', id: gridId }, { aqi })
+  }
+}
+
+// ── AQI particle haze ───────────────────────────────────────────────────────
+// Small drifting dots over the grid — from a couple of lazy motes over a
+// "Good" area up to a dense, faster swirl over a "Severe" one — so pollution
+// reads as something moving in the air, not just a static color fill.
+//
+// Individual per-cell particles were too expensive: GeoJSONSource.setData()
+// re-tiles + re-uploads its whole payload on a worker thread every call, so
+// more particles directly means more lag. Instead, neighboring cells (by
+// row/col) are merged into one shared particle cluster per block — a 4x4
+// area gets one averaged reading and one set of particles, not sixteen.
+const BLOCK_SIZE = 4
+const MAX_PARTICLES = 200
+// Restored to the original (pre-clustering) tick rate — that rate is what
+// looked smooth; clustering already did the actual lag fix by cutting the
+// particle count ~10x, so this is cheap again at the old, smoother rate.
+const PARTICLE_TICK_MS = 100
+
+// Indexed by severity (1 = Good … 6 = Severe, see AQI_STOPS)
+const PARTICLE_COUNT_BY_SEVERITY = [0, 1, 1, 2, 3, 4, 6]
+const PARTICLE_RADIUS_BY_SEVERITY = [0, 1.1, 1.1, 1.3, 1.6, 1.9, 2.4]
+
+interface Particle {
+  homeLon: number
+  homeLat: number
+  orbitLon: number
+  orbitLat: number
+  angle: number
+  speed: number
+  color: string
+  radius: number
+}
+
+/** Seeds a handful of orbiting particles per BLOCK_SIZE×BLOCK_SIZE cluster of
+ *  neighboring cells, scaled by that cluster's average AQI severity — worse
+ *  areas get more, bigger, faster-moving dots. */
+function computeParticleSeeds(
+  grid: FeatureCollection,
+  values: Record<string, number> | undefined,
+): Array<Particle> {
+  if (!values) return []
+
+  const blocks = new Map<
+    string,
+    { sumLon: number; sumLat: number; sumAqi: number; n: number }
+  >()
+
+  for (const feature of grid.features) {
+    const props = feature.properties as {
+      grid_id?: string
+      row?: number
+      col?: number
+      centroid_lon?: number
+      centroid_lat?: number
+    } | null
+    if (
+      props?.grid_id === undefined ||
+      props.row === undefined ||
+      props.col === undefined ||
+      !Object.hasOwn(values, props.grid_id) ||
+      props.centroid_lon === undefined ||
+      props.centroid_lat === undefined
+    )
+      continue
+    const aqi = values[props.grid_id]
+
+    const key = `${Math.floor(props.row / BLOCK_SIZE)}:${Math.floor(props.col / BLOCK_SIZE)}`
+    const block = blocks.get(key) ?? { sumLon: 0, sumLat: 0, sumAqi: 0, n: 0 }
+    block.sumLon += props.centroid_lon
+    block.sumLat += props.centroid_lat
+    block.sumAqi += aqi
+    block.n += 1
+    blocks.set(key, block)
+  }
+
+  const clusters = Array.from(blocks.values())
+    .map((b) => ({
+      lon: b.sumLon / b.n,
+      lat: b.sumLat / b.n,
+      aqi: b.sumAqi / b.n,
+    }))
+    .sort((a, b) => b.aqi - a.aqi)
+
+  const seeds: Array<Particle> = []
+  for (const { lon, lat, aqi } of clusters) {
+    if (seeds.length >= MAX_PARTICLES) break
+
+    const severity = AQI_STOPS.filter((s) => aqi >= s.aqi).length // 1..6
+    const count = PARTICLE_COUNT_BY_SEVERITY[severity] ?? 1
+    const radius = PARTICLE_RADIUS_BY_SEVERITY[severity] ?? 1.1
+    const color = aqiColor(aqi)
+
+    for (let i = 0; i < count && seeds.length < MAX_PARTICLES; i++) {
+      seeds.push({
+        homeLon: lon,
+        homeLat: lat,
+        orbitLon: 0.002 + Math.random() * 0.003,
+        orbitLat: 0.002 + Math.random() * 0.003,
+        angle: Math.random() * Math.PI * 2,
+        // Worse air also drifts faster — stillness reads as calm, a fast
+        // swirl reads as agitated/unhealthy.
+        speed: (0.3 + severity * 0.15) * (0.8 + Math.random() * 0.4),
+        color,
+        radius,
+      })
+    }
+  }
+  return seeds
+}
+
+/** Built once per reseed — later ticks mutate these features' coordinates
+ *  in place instead of allocating a fresh FeatureCollection every time. */
+function buildParticleGeoJson(
+  particles: Array<Particle>,
+): FeatureCollection<Point> {
+  return {
+    type: 'FeatureCollection',
+    features: particles.map(
+      (p): Feature<Point> => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [
+            p.homeLon + Math.cos(p.angle) * p.orbitLon,
+            p.homeLat + Math.sin(p.angle) * p.orbitLat,
+          ],
+        },
+        properties: { color: p.color, radius: p.radius },
+      }),
+    ),
+  }
+}
+
+/** Mutates `fc`'s feature coordinates in place from the current particle
+ *  angles — avoids reallocating hundreds of feature/geometry objects on
+ *  every animation tick. `fc` must have been built from this exact
+ *  `particles` array (same length/order) via buildParticleGeoJson(). */
+function updateParticleGeoJson(
+  fc: FeatureCollection<Point>,
+  particles: Array<Particle>,
+): void {
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i]
+    const coords = fc.features[i].geometry.coordinates
+    coords[0] = p.homeLon + Math.cos(p.angle) * p.orbitLon
+    coords[1] = p.homeLat + Math.sin(p.angle) * p.orbitLat
   }
 }
 
@@ -118,8 +267,14 @@ export function GridMap({
 }: GridMapProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
+  const reducedMotion = useReducedMotion()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const particlesRef = useRef<Array<Particle>>([])
+  const particleGeoJsonRef = useRef<FeatureCollection<Point>>({
+    type: 'FeatureCollection',
+    features: [],
+  })
   // Camera carried across map re-creation (theme switches rebuild the map,
   // since maplibre's setStyle would drop our custom sources/layers anyway)
   const cameraRef = useRef<{
@@ -153,8 +308,18 @@ export function GridMap({
     appliedSelectionRef.current = next
   }
 
+  const applyParticleSeeds = (map: maplibregl.Map) => {
+    if (reducedMotion || !map.getSource('particles')) return
+    particlesRef.current = computeParticleSeeds(grid, pollutionRef.current?.values)
+    particleGeoJsonRef.current = buildParticleGeoJson(particlesRef.current)
+    const source = map.getSource('particles') as maplibregl.GeoJSONSource
+    source.setData(particleGeoJsonRef.current)
+  }
+
   useEffect(() => {
-    if (mapRef.current) applyPollution(mapRef.current, pollutionData?.values)
+    if (!mapRef.current) return
+    applyPollution(mapRef.current, pollutionData?.values)
+    applyParticleSeeds(mapRef.current)
   }, [pollutionData])
 
   useEffect(() => {
@@ -202,6 +367,7 @@ export function GridMap({
     )
 
     let hoveredId: string | number | null = null
+    let particleAnimId: number | null = null
 
     // Overlay ink — white lattice over the dark basemap, near-black over light
     const ink = isDark ? '#ffffff' : '#1a1a1a'
@@ -239,7 +405,10 @@ export function GridMap({
             'case',
             ['<', AQI_STATE, 0],
             ['case', ['boolean', ['feature-state', 'hover'], false], 0.27, 0.1],
-            ['case', ['boolean', ['feature-state', 'hover'], false], 0.8, 0.55],
+            // Kept low enough that the basemap (streets, terrain) stays
+            // legible under the heatmap — the band color still reads
+            // clearly at this opacity, it just doesn't paint over everything.
+            ['case', ['boolean', ['feature-state', 'hover'], false], 0.45, 0.24],
           ],
         },
       })
@@ -297,9 +466,51 @@ export function GridMap({
         },
       })
 
+      // AQI particle haze — small drifting dots over cells that have
+      // actually crossed into Moderate+ air quality (skipped entirely for
+      // prefers-reduced-motion, since it's decorative motion, not data).
+      if (!reducedMotion) {
+        map.addSource('particles', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        })
+        map.addLayer({
+          id: 'aqi-particles',
+          type: 'circle',
+          source: 'particles',
+          paint: {
+            'circle-radius': ['get', 'radius'],
+            'circle-color': ['get', 'color'],
+            'circle-opacity': 0.75,
+            'circle-blur': 0.4,
+          },
+        })
+      }
+
       // Values / selection may have arrived while the style was still loading
       applyPollution(map, pollutionRef.current?.values)
       applySelection(map)
+      applyParticleSeeds(map)
+
+      // Drift the particles in a slow orbit around their home cell, throttled
+      // well below 60fps — this is ambient texture, not something that needs
+      // to be buttery smooth, and setData() re-tiles + re-uploads the whole
+      // payload on a worker thread every time it's called.
+      if (!reducedMotion) {
+        let lastTick = 0
+        const tick = (t: number) => {
+          particleAnimId = requestAnimationFrame(tick)
+          if (document.hidden || t - lastTick < PARTICLE_TICK_MS) return
+          lastTick = t
+
+          for (const p of particlesRef.current) p.angle += p.speed * 0.08
+          updateParticleGeoJson(particleGeoJsonRef.current, particlesRef.current)
+
+          const source = map.getSource('particles') as maplibregl.GeoJSONSource
+          source.setData(particleGeoJsonRef.current)
+        }
+        particleAnimId = requestAnimationFrame(tick)
+      }
 
       map.on('mousemove', 'grid-fill', (e) => {
         const feature = e.features?.[0]
@@ -346,9 +557,10 @@ export function GridMap({
       cameraRef.current = { center: map.getCenter(), zoom: map.getZoom() }
       appliedSelectionRef.current = null
       mapRef.current = null
+      if (particleAnimId !== null) cancelAnimationFrame(particleAnimId)
       map.remove()
     }
-  }, [grid, boundary, isDark])
+  }, [grid, boundary, isDark, reducedMotion])
 
   // maplibre-gl.css forces `position: relative` on the map element itself,
   // so size it with h-full inside an absolutely-positioned wrapper instead.

@@ -7,4 +7,18 @@ requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.139.0",
     "openai>=2.45.0",
+    "pandas>=2.2.0",
+    "python-dotenv>=1.0.1",
+]
+
+[dependency-groups]
+# This venv is also used to run the root-level ai_model pipeline scripts
+# (live_inference.py, extract_forecast.py, ai_model/train.py) — declared
+# here explicitly so `uv sync` stops pruning them as "undeclared" packages.
+pipeline = [
+    "lightgbm>=4.6.0",
+    "matplotlib>=3.11.0",
+    "scikit-learn>=1.9.0",
+    "requests>=2.34.2",
+    "joblib>=1.5.3",
 ]

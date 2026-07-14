@@ -38,6 +38,7 @@ import {
   ItemGroup,
 } from '@/components/ui/item'
 import { Separator } from '@/components/ui/separator'
+import CountUp from '@/components/CountUp'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -146,7 +147,7 @@ export function CellDetail({
             aria-hidden="true"
           />
           <span className="font-mono text-2xl font-bold leading-none">
-            {Math.round(aqi)}
+            <CountUp to={Math.round(aqi)} duration={0.8} />
           </span>
           {/* CPCB band colour is data-driven, so it comes in via style */}
           <Badge
@@ -205,7 +206,7 @@ export function CellDetail({
         <ChartContainer config={chartConfig} className="aspect-auto h-44 w-full">
           <LineChart
             data={chartData}
-            margin={{ top: 4, right: 8, bottom: 16, left: -8 }}
+            margin={{ top: 4, right: 8, bottom: 16, left: 0 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
