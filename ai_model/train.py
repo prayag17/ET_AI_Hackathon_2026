@@ -22,9 +22,9 @@ import joblib
 # ── Exact column names from features_ready.csv ─────────────────────────────
 # Do NOT change these — they must match what's in features_ready.csv exactly
 FEATURE_COLUMNS = [
-    "pm25",
-    "no2",
-    "co",
+    "wind_speed",
+    "temp",
+    "humidity",
     "traffic_index",
     "hour",
     "dow",
