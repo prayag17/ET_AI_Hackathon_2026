@@ -335,6 +335,12 @@ USE_SEVERE_DEMO_DATE = False   # Use latest real AQI (low/moderate)
 USE_SEVERE_DEMO_DATE = True    # Force historical severe winter date (400+ AQI zones)
 ```
 
+**For real time data, use**
+```bash
+cd ai_model
+python live_inference.py
+```
+
 **To refresh the demo after changing the flag:**
 ```bash
 cd ai_model

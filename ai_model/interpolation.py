@@ -167,7 +167,7 @@ def demo_readings(sensors):
     # --- CONFIGURATION FLAG ---
     # Set this to False to use the latest real AQI data (which might be low/moderate).
     # Set this to True to force the snapshot to a multiple gradients of AQI.
-    USE_SEVERE_DEMO_DATE = True
+    USE_SEVERE_DEMO_DATE = False
     
     if USE_SEVERE_DEMO_DATE:
         # For demo purposes, to show all colors on the map scale, we assign synthetic values
