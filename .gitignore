@@ -20,14 +20,14 @@ ai_model/models/*.pkl
 
 # Distribution / packaging
 .Python
-build/
+/build/
 develop-eggs/
-dist/
+/dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -228,8 +228,4 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-<<<<<<< HEAD
-=======
 
-
->>>>>>> df10704ebcf95f53795bcb41d20811040ef14c6c
