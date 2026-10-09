@@ -3,6 +3,7 @@
 > **ET AI Hackathon 2026** — A 1km-resolution air quality forecasting system for Ahmedabad that combines LightGBM ML predictions with official GRAP-style civic response advisories.
 
 The system predicts AQI for each of 502 grid cells across Ahmedabad at 24h, 48h, and 72h horizons, serves the predictions via a FastAPI backend, and visualises them on an interactive heatmap with a time-slider and advisory panel.
+<img width="1280" height="708" alt="image" src="https://github.com/user-attachments/assets/871735aa-60bb-4532-ae64-e47a09481f08" />
 
 ---
 
